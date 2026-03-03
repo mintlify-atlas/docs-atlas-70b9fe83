@@ -1,0 +1,320 @@
+---
+title: 'Authentication customization'
+description: 'Customize the Django Unfold login page and authentication flow'
+keywords: ['login', 'authentication', 'auth', 'forms', 'redirect']
+---
+
+Django Unfold provides extensive customization options for the login page and authentication flow.
+
+## Login configuration
+
+<ParamField path="LOGIN" type="object" default="{image: None, redirect_after: None, form: None}">
+  Login page configuration including branding, redirects, and custom forms.
+
+  <Expandable title="properties">
+    <ParamField path="image" type="string" default="None">
+      Path to an image displayed on the login page. Useful for branding or decorative purposes.
+    </ParamField>
+    
+    <ParamField path="redirect_after" type="string" default="None">
+      URL to redirect users to after successful login. If not specified, uses Django's default behavior.
+    </ParamField>
+    
+    <ParamField path="form" type="string" default="None">
+      Python path to a custom login form class. Must inherit from Django's authentication form.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Basic login customization
+
+```python settings.py
+UNFOLD = {
+    "LOGIN": {
+        "image": "images/login-background.jpg",
+        "redirect_after": "/admin/dashboard/",
+    },
+}
+```
+
+## Login page image
+
+Add a branded image to your login page:
+
+```python settings.py
+UNFOLD = {
+    "LOGIN": {
+        "image": "images/company-logo.svg",
+    },
+}
+```
+
+Place the image in your static files directory:
+
+```
+project/
+├── static/
+│   └── images/
+│       └── company-logo.svg
+├── manage.py
+└── settings.py
+```
+
+## Custom redirect after login
+
+Redirect users to a specific page after successful authentication:
+
+```python settings.py
+UNFOLD = {
+    "LOGIN": {
+        "redirect_after": "/admin/dashboard/",
+    },
+}
+```
+
+### Dynamic redirects
+
+For complex redirect logic, use Django's `LOGIN_REDIRECT_URL` setting:
+
+```python settings.py
+# Redirect based on user permissions
+def get_redirect_url(request):
+    if request.user.is_superuser:
+        return '/admin/'
+    return '/admin/myapp/'
+
+LOGIN_REDIRECT_URL = '/admin/'
+```
+
+## Custom login form
+
+Use a custom form class for additional login fields or validation:
+
+```python forms.py
+from django.contrib.auth.forms import AuthenticationForm
+from django import forms
+
+class CustomLoginForm(AuthenticationForm):
+    remember_me = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput()
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add custom validation
+        return cleaned_data
+```
+
+```python settings.py
+UNFOLD = {
+    "LOGIN": {
+        "form": "myapp.forms.CustomLoginForm",
+    },
+}
+```
+
+## Complete example
+
+```python settings.py
+UNFOLD = {
+    "SITE_TITLE": "Admin Portal",
+    "SITE_HEADER": "Company Admin",
+    "LOGIN": {
+        "image": "images/login-banner.jpg",
+        "redirect_after": "/admin/dashboard/",
+        "form": "myapp.forms.CustomLoginForm",
+    },
+}
+```
+
+## Advanced customization
+
+### Custom login view
+
+For complete control over the login flow, override the login view:
+
+```python admin.py
+from django.contrib.admin import AdminSite
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login
+
+class CustomAdminSite(AdminSite):
+    def login(self, request, extra_context=None):
+        if request.method == 'POST':
+            username = request.POST.get('username')
+            password = request.POST.get('password')
+            user = authenticate(request, username=username, password=password)
+            
+            if user is not None:
+                login(request, user)
+                # Custom redirect logic
+                return redirect('/admin/')
+        
+        return super().login(request, extra_context)
+
+admin_site = CustomAdminSite(name='custom_admin')
+```
+
+### Two-factor authentication
+
+Integrate two-factor authentication:
+
+```python forms.py
+from django.contrib.auth.forms import AuthenticationForm
+from django import forms
+import pyotp
+
+class TwoFactorLoginForm(AuthenticationForm):
+    otp_token = forms.CharField(
+        max_length=6,
+        required=True,
+        label="2FA Code"
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        user = self.get_user()
+        
+        if user:
+            otp_token = cleaned_data.get('otp_token')
+            totp = pyotp.TOTP(user.profile.otp_secret)
+            
+            if not totp.verify(otp_token):
+                raise forms.ValidationError("Invalid 2FA code")
+        
+        return cleaned_data
+```
+
+```python settings.py
+UNFOLD = {
+    "LOGIN": {
+        "form": "myapp.forms.TwoFactorLoginForm",
+    },
+}
+```
+
+## Styling the login page
+
+Customize login page styles with custom CSS:
+
+```css custom-login.css
+/* Login page container */
+.unfold-login-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Login form */
+.unfold-login-form {
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* Login image */
+.unfold-login-image {
+    max-width: 200px;
+    margin-bottom: 2rem;
+}
+```
+
+```python settings.py
+UNFOLD = {
+    "STYLES": [
+        "css/custom-login.css",
+    ],
+    "LOGIN": {
+        "image": "images/logo.svg",
+    },
+}
+```
+
+## Security considerations
+
+### Rate limiting
+
+Implement rate limiting for login attempts:
+
+```python forms.py
+from django.core.cache import cache
+from django.contrib.auth.forms import AuthenticationForm
+from django import forms
+
+class RateLimitedLoginForm(AuthenticationForm):
+    def clean(self):
+        username = self.cleaned_data.get('username')
+        cache_key = f'login_attempts_{username}'
+        attempts = cache.get(cache_key, 0)
+        
+        if attempts >= 5:
+            raise forms.ValidationError(
+                "Too many login attempts. Please try again later."
+            )
+        
+        try:
+            return super().clean()
+        except forms.ValidationError:
+            cache.set(cache_key, attempts + 1, 300)  # 5 minutes
+            raise
+```
+
+### Session security
+
+Configure secure session settings:
+
+```python settings.py
+# Session security
+SESSION_COOKIE_SECURE = True  # HTTPS only
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Strict'
+SESSION_COOKIE_AGE = 3600  # 1 hour
+
+# CSRF protection
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+```
+
+## Testing authentication
+
+Test your custom authentication:
+
+```python tests.py
+from django.test import TestCase, Client
+from django.contrib.auth.models import User
+
+class LoginTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+    
+    def test_login_redirect(self):
+        response = self.client.post('/admin/login/', {
+            'username': 'testuser',
+            'password': 'testpass123',
+        })
+        self.assertRedirects(response, '/admin/dashboard/')
+    
+    def test_custom_form_validation(self):
+        response = self.client.post('/admin/login/', {
+            'username': 'testuser',
+            'password': 'wrong',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(response, 'form', None, 
+                           'Please enter a correct username and password.')
+```
+
+<Info>
+The login image path is relative to your `STATIC_URL`. Ensure your static files are properly configured.
+</Info>
+
+<Tip>
+Use environment-specific redirect URLs to send users to different dashboards in development vs. production.
+</Tip>
+
+<Warning>
+When using custom login forms, ensure they properly handle authentication errors and rate limiting to prevent brute-force attacks.
+</Warning>

@@ -1,0 +1,189 @@
+---
+title: Card Component
+description: Container component for grouping related content with optional title, footer, and actions
+---
+
+The Card component is a versatile container that groups related content with optional headers, footers, icons, and click actions. It's commonly used for dashboards, summary panels, and content organization.
+
+## Basic Usage
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/card.html" with title="User Statistics" %}
+  <p class="text-2xl font-bold">1,234</p>
+  <p class="text-gray-600">Active Users</p>
+{% endcomponent %}
+```
+
+## Props
+
+<ParamField path="title" type="string">
+  Card header title. When provided, displays a header section with border.
+</ParamField>
+
+<ParamField path="href" type="string">
+  URL to navigate to when card is clicked. Renders card as an `<a>` tag instead of `<div>`.
+</ParamField>
+
+<ParamField path="class" type="string">
+  Additional CSS classes to apply to the card container.
+</ParamField>
+
+<ParamField path="disable_border" type="boolean" default="false">
+  When `true`, removes the border and applies shadow instead.
+</ParamField>
+
+<ParamField path="action" type="string">
+  HTML content to display in the header as an action element (e.g., button or link).
+</ParamField>
+
+<ParamField path="label" type="string">
+  Label text to display in the top-right corner of the card.
+</ParamField>
+
+<ParamField path="icon" type="string">
+  Material Symbols icon name to display as a large background icon.
+</ParamField>
+
+<ParamField path="icon_class" type="string">
+  Additional CSS classes to apply to the icon element.
+</ParamField>
+
+<ParamField path="footer" type="string">
+  HTML content to display in the card footer section.
+</ParamField>
+
+<ParamField path="children" type="string">
+  Main content of the card. Passed via the component body.
+</ParamField>
+
+## Examples
+
+### Simple Card
+
+```django
+{% component "unfold/components/card.html" %}
+  <h3 class="text-lg font-semibold mb-2">Welcome</h3>
+  <p>This is a simple card with content.</p>
+{% endcomponent %}
+```
+
+### Card with Title
+
+```django
+{% component "unfold/components/card.html" with title="Dashboard Stats" %}
+  <div class="space-y-4">
+    <div>
+      <p class="text-sm text-gray-600">Total Revenue</p>
+      <p class="text-2xl font-bold">$12,345</p>
+    </div>
+  </div>
+{% endcomponent %}
+```
+
+### Clickable Card
+
+```django
+{% component "unfold/components/card.html" with title="View Details" href="/admin/app/model/1/" %}
+  <p>Click this card to navigate to the detail page.</p>
+{% endcomponent %}
+```
+
+### Card with Icon
+
+```django
+{% component "unfold/components/card.html" with title="Orders" icon="shopping_cart" %}
+  <p class="text-3xl font-bold">245</p>
+  <p class="text-gray-600">New orders today</p>
+{% endcomponent %}
+```
+
+### Card with Label
+
+```django
+{% component "unfold/components/card.html" with title="Server Status" label="Live" %}
+  <p>All systems operational</p>
+{% endcomponent %}
+```
+
+### Card with Action Button
+
+```django
+{% component "unfold/components/card.html" with title="Recent Activity" %}
+  {% slot action %}
+    {% component "unfold/components/button.html" with href="/admin/activity/" variant="ghost" %}
+      View All
+    {% endcomponent %}
+  {% endslot %}
+  
+  <ul class="space-y-2">
+    <li>User registered</li>
+    <li>Order placed</li>
+  </ul>
+{% endcomponent %}
+```
+
+### Card with Footer
+
+```django
+{% component "unfold/components/card.html" with title="Statistics" %}
+  <p class="text-2xl font-bold">98.5%</p>
+  <p>Uptime</p>
+  
+  {% slot footer %}
+    <p class="text-sm text-gray-600">Last updated: 2 minutes ago</p>
+  {% endslot %}
+{% endcomponent %}
+```
+
+### Dashboard Layout Example
+
+```django
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  {% component "unfold/components/card.html" with title="Users" icon="people" %}
+    <p class="text-3xl font-bold">{{ user_count }}</p>
+    <p class="text-gray-600">Total users</p>
+  {% endcomponent %}
+  
+  {% component "unfold/components/card.html" with title="Revenue" icon="payments" %}
+    <p class="text-3xl font-bold">${{ revenue }}</p>
+    <p class="text-gray-600">This month</p>
+  {% endcomponent %}
+  
+  {% component "unfold/components/card.html" with title="Orders" icon="shopping_bag" %}
+    <p class="text-3xl font-bold">{{ order_count }}</p>
+    <p class="text-gray-600">Pending orders</p>
+  {% endcomponent %}
+</div>
+```
+
+## Styling
+
+The Card component uses these default styles:
+
+- Background: `bg-white dark:bg-base-900`
+- Border: `border border-base-200 dark:border-base-800`
+- Padding: `p-6`
+- Border radius: `rounded-default`
+- Shadow: `shadow-xs`
+
+Hover effects are applied when `href` is provided:
+- `hover:border-base-300 dark:hover:border-base-700`
+- `hover:shadow-md`
+
+## Accessibility
+
+- Cards with `href` are rendered as anchor tags for proper keyboard navigation
+- Label text is visible to screen readers
+- Icons use Material Symbols with proper ARIA handling
+
+## Related Components
+
+- [Button](/components/button) - Use in card headers or footers
+- [Progress](/components/progress) - Display metrics in cards
+- [Table](/components/table) - Show tabular data within cards
+
+## Source
+
+Template: `src/unfold/templates/unfold/components/card.html:1`

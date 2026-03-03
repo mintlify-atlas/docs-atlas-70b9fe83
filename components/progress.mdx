@@ -1,0 +1,259 @@
+---
+title: Progress Component
+description: Visualize progress or percentage values with customizable bars
+---
+
+The Progress component displays visual progress indicators with support for single or multiple stacked progress bars, titles, and descriptions.
+
+## Basic Usage
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/progress.html" with value=75 %}
+{% endcomponent %}
+```
+
+## Props
+
+<ParamField path="value" type="number">
+  Progress value as a percentage (0-100) for a single progress bar.
+</ParamField>
+
+<ParamField path="items" type="list">
+  List of progress items for stacked/multiple progress bars. Each item should have `value` and optionally `title` and `progress_class`.
+</ParamField>
+
+<ParamField path="title" type="string">
+  Title text displayed above the progress bar.
+</ParamField>
+
+<ParamField path="description" type="string">
+  Description text displayed in the top-right corner.
+</ParamField>
+
+<ParamField path="progress_class" type="string">
+  Additional CSS classes to apply to the progress bar.
+</ParamField>
+
+<ParamField path="class" type="string">
+  Additional CSS classes for the container.
+</ParamField>
+
+## Examples
+
+### Simple Progress Bar
+
+```django
+{% component "unfold/components/progress.html" with value=65 %}
+{% endcomponent %}
+```
+
+### Progress with Title
+
+```django
+{% component "unfold/components/progress.html" with title="Completion" value=85 %}
+{% endcomponent %}
+```
+
+### Progress with Title and Description
+
+```django
+{% component "unfold/components/progress.html" with title="Upload Progress" description="75%" value=75 %}
+{% endcomponent %}
+```
+
+### Custom Color Progress
+
+```django
+{% component "unfold/components/progress.html" with value=45 progress_class="bg-green-600" %}
+{% endcomponent %}
+```
+
+### Multiple Stacked Progress Bars
+
+```python
+# In view or context
+progress_items = [
+    {'value': 30, 'title': 'Completed', 'progress_class': 'bg-green-600'},
+    {'value': 20, 'title': 'In Progress', 'progress_class': 'bg-blue-600'},
+    {'value': 15, 'title': 'Pending', 'progress_class': 'bg-yellow-600'},
+]
+```
+
+```django
+{% component "unfold/components/progress.html" with title="Project Status" items=progress_items %}
+{% endcomponent %}
+```
+
+### Progress in Card
+
+```django
+{% component "unfold/components/card.html" with title="Statistics" %}
+  <div class="space-y-4">
+    {% component "unfold/components/progress.html" with title="CPU Usage" description="45%" value=45 %}
+    {% endcomponent %}
+    
+    {% component "unfold/components/progress.html" with title="Memory" description="78%" value=78 progress_class="bg-orange-600" %}
+    {% endcomponent %}
+    
+    {% component "unfold/components/progress.html" with title="Disk" description="32%" value=32 progress_class="bg-green-600" %}
+    {% endcomponent %}
+  </div>
+{% endcomponent %}
+```
+
+## Complete Dashboard Example
+
+```python
+# views.py
+from django.views.generic import TemplateView
+from unfold.views import UnfoldModelAdminViewMixin
+from django.db.models import Count, Q
+
+class AnalyticsView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Analytics Dashboard"
+    template_name = "admin/analytics.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Calculate task completion
+        total_tasks = Task.objects.count()
+        completed = Task.objects.filter(status='completed').count()
+        in_progress = Task.objects.filter(status='in_progress').count()
+        pending = Task.objects.filter(status='pending').count()
+        
+        context['task_completion'] = [
+            {
+                'value': round((completed / total_tasks) * 100, 1),
+                'title': 'Completed',
+                'progress_class': 'bg-green-600'
+            },
+            {
+                'value': round((in_progress / total_tasks) * 100, 1),
+                'title': 'In Progress',
+                'progress_class': 'bg-blue-600'
+            },
+            {
+                'value': round((pending / total_tasks) * 100, 1),
+                'title': 'Pending',
+                'progress_class': 'bg-yellow-600'
+            },
+        ]
+        
+        # Storage usage
+        total_storage = 1000  # GB
+        used_storage = 750
+        context['storage_percent'] = round((used_storage / total_storage) * 100, 1)
+        context['storage_description'] = f"{used_storage}GB / {total_storage}GB"
+        
+        return context
+```
+
+```django
+{# templates/admin/analytics.html #}
+{% extends "unfold/layouts/base.html" %}
+{% load unfold %}
+
+{% block content %}
+<div class="container mx-auto">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    {% component "unfold/components/card.html" with title="Task Progress" %}
+      {% component "unfold/components/progress.html" with title="Overall Status" items=task_completion %}
+      {% endcomponent %}
+    {% endcomponent %}
+    
+    {% component "unfold/components/card.html" with title="Storage" %}
+      {% component "unfold/components/progress.html" with title="Disk Usage" description=storage_description value=storage_percent %}
+      {% endcomponent %}
+    {% endcomponent %}
+  </div>
+</div>
+{% endblock %}
+```
+
+## Usage in Templates
+
+### Dynamic Progress from QuerySet
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/card.html" with title="Order Status" %}
+  {% with total=orders.count %}
+    {% component "unfold/components/progress.html" with title="Completed Orders" value=orders.filter|completed|count|div:total|mul:100 %}
+    {% endcomponent %}
+  {% endwith %}
+{% endcomponent %}
+```
+
+### Multiple Progress Indicators
+
+```django
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  {% component "unfold/components/card.html" with title="Users" %}
+    {% component "unfold/components/progress.html" with title="Active" description="85%" value=85 progress_class="bg-green-600" %}
+    {% endcomponent %}
+  {% endcomponent %}
+  
+  {% component "unfold/components/card.html" with title="Revenue" %}
+    {% component "unfold/components/progress.html" with title="Target" description="92%" value=92 progress_class="bg-blue-600" %}
+    {% endcomponent %}
+  {% endcomponent %}
+  
+  {% component "unfold/components/card.html" with title="Support" %}
+    {% component "unfold/components/progress.html" with title="Tickets Resolved" description="78%" value=78 progress_class="bg-purple-600" %}
+    {% endcomponent %}
+  {% endcomponent %}
+</div>
+```
+
+## Styling
+
+Default progress styles:
+
+- Container background: `bg-base-100 dark:bg-base-800`
+- Progress bar: `bg-primary-600 dark:bg-primary-500`
+- Height: `h-1.5`
+- Border radius: `rounded-default`
+
+Custom colors using `progress_class`:
+
+```django
+{# Green progress #}
+{% component "unfold/components/progress.html" with value=80 progress_class="bg-green-600 dark:bg-green-500" %}
+{% endcomponent %}
+
+{# Red progress #}
+{% component "unfold/components/progress.html" with value=25 progress_class="bg-red-600 dark:bg-red-500" %}
+{% endcomponent %}
+
+{# Orange progress #}
+{% component "unfold/components/progress.html" with value=60 progress_class="bg-orange-600 dark:bg-orange-500" %}
+{% endcomponent %}
+```
+
+## Accessibility
+
+- Progress bars include `title` attribute with percentage value
+- Title and description provide context for screen readers
+- ARIA attributes can be added via the component template
+
+## Best Practices
+
+1. **Value Range**: Keep values between 0-100
+2. **Multiple Bars**: Ensure stacked values don't exceed 100%
+3. **Colors**: Use meaningful colors (green for success, red for danger, etc.)
+4. **Context**: Always provide title or description for clarity
+5. **Dark Mode**: Use dark mode compatible color classes
+
+## Related Components
+
+- [Card](/components/card) - Wrap progress bars in cards
+- [Tracker](/components/tracker) - Alternative visualization for time-series data
+- [Chart](/components/chart) - More complex data visualizations
+
+## Source
+
+Template: `src/unfold/templates/unfold/components/progress.html:1`

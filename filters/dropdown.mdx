@@ -1,0 +1,412 @@
+---
+title: 'Dropdown Filters'
+description: 'Single and multiple selection dropdown filters for Django admin'
+icon: 'angle-down'
+---
+
+## Overview
+
+Dropdown filters provide a clean, space-efficient way to filter data using select dropdowns. They're ideal for fields with a limited number of options and support both single and multiple selections.
+
+## Available Dropdown Filters
+
+<CardGroup cols={2}>
+  <Card title="DropdownFilter" icon="circle-dot">
+    Custom filter with single selection dropdown
+  </Card>
+  
+  <Card title="MultipleDropdownFilter" icon="list-check">
+    Custom filter with multiple selection support
+  </Card>
+  
+  <Card title="ChoicesDropdownFilter" icon="list">
+    Automatic filter for fields with choices
+  </Card>
+  
+  <Card title="MultipleChoicesDropdownFilter" icon="list-check">
+    Multiple selection for choice fields
+  </Card>
+  
+  <Card title="RelatedDropdownFilter" icon="link">
+    Single selection for foreign key relationships
+  </Card>
+  
+  <Card title="MultipleRelatedDropdownFilter" icon="link">
+    Multiple selection for foreign key relationships
+  </Card>
+</CardGroup>
+
+## DropdownFilter
+
+Create custom filters with dropdown UI using `SimpleListFilter` logic.
+
+### Basic Example
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import DropdownFilter
+
+from .models import Product
+
+
+class StatusFilter(DropdownFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("draft", "Draft"),
+            ("published", "Published"),
+            ("archived", "Archived"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(status=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [StatusFilter]
+```
+
+### Removing "All" Option
+
+By default, dropdowns include an "All" option to clear the filter. You can remove it:
+
+```python admin.py
+class StatusFilter(DropdownFilter):
+    title = "Status"
+    parameter_name = "status"
+    all_option = None  # Remove "All" option
+
+    def lookups(self, request, model_admin):
+        return (
+            ("draft", "Draft"),
+            ("published", "Published"),
+        )
+```
+
+### Custom "All" Label
+
+```python admin.py
+class StatusFilter(DropdownFilter):
+    title = "Status"
+    parameter_name = "status"
+    all_option = ["", "Any Status"]  # Custom label
+
+    def lookups(self, request, model_admin):
+        return (
+            ("active", "Active"),
+            ("inactive", "Inactive"),
+        )
+```
+
+## MultipleDropdownFilter
+
+Allow users to select multiple values from the dropdown.
+
+```python admin.py
+from unfold.contrib.filters.admin import MultipleDropdownFilter
+
+
+class TagsFilter(MultipleDropdownFilter):
+    title = "Tags"
+    parameter_name = "tags"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("featured", "Featured"),
+            ("new", "New"),
+            ("sale", "On Sale"),
+        )
+
+    def queryset(self, request, queryset):
+        # self.value() returns a list when multiple items selected
+        if self.value():
+            return queryset.filter(tags__name__in=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [TagsFilter]
+```
+
+<Tip>
+With `MultipleDropdownFilter`, the `value()` method returns a list of selected values, not a single value.
+</Tip>
+
+## ChoicesDropdownFilter
+
+Automatically create dropdown filters for model fields with `choices` defined.
+
+```python models.py
+from django.db import models
+
+
+class Product(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        ARCHIVED = "archived", "Archived"
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import ChoicesDropdownFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("status", ChoicesDropdownFilter),  # Tuple format
+    ]
+```
+
+<Note>
+Use the tuple format `(field_name, FilterClass)` when applying filters to model fields.
+</Note>
+
+## MultipleChoicesDropdownFilter
+
+Multiple selection version of `ChoicesDropdownFilter`.
+
+```python admin.py
+from unfold.contrib.filters.admin import MultipleChoicesDropdownFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("status", MultipleChoicesDropdownFilter),
+    ]
+```
+
+## RelatedDropdownFilter
+
+Create dropdown filters for foreign key relationships.
+
+```python models.py
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class Product(models.Model):
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import RelatedDropdownFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("category", RelatedDropdownFilter),
+    ]
+```
+
+### Limiting Related Options
+
+You can override the queryset to limit which related objects appear:
+
+```python admin.py
+from unfold.contrib.filters.admin import RelatedDropdownFilter
+
+
+class ActiveCategoryFilter(RelatedDropdownFilter):
+    def field_choices(self, field, request, model_admin):
+        # Only show active categories
+        return field.get_choices(
+            include_blank=False,
+            limit_choices_to={"is_active": True}
+        )
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("category", ActiveCategoryFilter),
+    ]
+```
+
+## MultipleRelatedDropdownFilter
+
+Allow filtering by multiple related objects.
+
+```python admin.py
+from unfold.contrib.filters.admin import MultipleRelatedDropdownFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("category", MultipleRelatedDropdownFilter),
+    ]
+```
+
+<Info>
+This is particularly useful for many-to-many relationships where users might want to filter by multiple related objects.
+</Info>
+
+## Faceted Counts
+
+All dropdown filters support showing counts when facets are enabled:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import RelatedDropdownFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    show_facets = admin.ShowFacets.ALWAYS
+    list_filter = [
+        ("category", RelatedDropdownFilter),  # Shows "Electronics (42)"
+    ]
+```
+
+## Advanced Customization
+
+### Custom Form Class
+
+You can provide your own form class for rendering:
+
+```python admin.py
+from unfold.contrib.filters.forms import DropdownForm
+
+
+class CustomDropdownForm(DropdownForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add custom attributes or classes
+        self.fields['filter'].widget.attrs.update({
+            'class': 'custom-dropdown',
+        })
+
+
+class StatusFilter(DropdownFilter):
+    form_class = CustomDropdownForm
+    title = "Status"
+    parameter_name = "status"
+```
+
+### Dynamic Lookups
+
+Generate filter options dynamically based on database content:
+
+```python admin.py
+class DynamicCategoryFilter(DropdownFilter):
+    title = "Category"
+    parameter_name = "category"
+
+    def lookups(self, request, model_admin):
+        # Get categories that have products
+        categories = Category.objects.filter(
+            product__isnull=False
+        ).distinct().order_by('name')
+        
+        return [(cat.id, cat.name) for cat in categories]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(category_id=self.value())
+        return queryset
+```
+
+## API Reference
+
+### DropdownFilter
+
+<ParamField path="title" type="str" required>
+  Display name for the filter in the admin
+</ParamField>
+
+<ParamField path="parameter_name" type="str" required>
+  URL parameter name for the filter value
+</ParamField>
+
+<ParamField path="all_option" type="list[str] | None" default='["", "All"]'>
+  Option to clear filter. Set to `None` to remove
+</ParamField>
+
+<ParamField path="form_class" type="type[DropdownForm]" default="DropdownForm">
+  Form class used for rendering the dropdown
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_field.html"'>
+  Template used to render the filter
+</ParamField>
+
+### Methods
+
+<ResponseField name="lookups" type="method">
+  ```python
+  def lookups(self, request, model_admin):
+      return ()
+  ```
+  Returns a list of tuples `(value, label)` for filter options.
+</ResponseField>
+
+<ResponseField name="queryset" type="method">
+  ```python
+  def queryset(self, request, queryset):
+      return queryset
+  ```
+  Filters the queryset based on the selected value.
+</ResponseField>
+
+<ResponseField name="value" type="method">
+  ```python
+  def value(self):
+      return self.used_parameters.get(self.parameter_name)
+  ```
+  Returns the currently selected filter value.
+</ResponseField>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When to use dropdown filters">
+    - **Best for**: 5-50 options
+    - **Avoid for**: >100 options (use autocomplete instead)
+    - **Good for**: Status fields, categories, types
+  </Accordion>
+
+  <Accordion title="Performance optimization">
+    - Use `select_related()` or `prefetch_related()` in `get_queryset()` for related filters
+    - Cache dynamic lookups when possible
+    - Consider `AutocompleteSelectFilter` for large datasets
+  </Accordion>
+
+  <Accordion title="User experience">
+    - Keep labels short and descriptive
+    - Order options logically (alphabetically, by frequency, etc.)
+    - Use multiple filters for complex filtering needs
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Autocomplete Filters" icon="magnifying-glass" href="/filters/autocomplete">
+    Learn about AJAX-powered autocomplete for large datasets
+  </Card>
+  
+  <Card title="Checkbox & Radio Filters" icon="square-check" href="/filters/checkbox-radio">
+    Explore alternative selection UI patterns
+  </Card>
+</CardGroup>

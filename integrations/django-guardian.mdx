@@ -1,0 +1,269 @@
+---
+title: Django Guardian
+description: Implement object-level permissions in Django Unfold with django-guardian for granular access control across your models
+---
+
+## Overview
+
+Django Guardian provides object-level permissions for Django models, allowing you to control access at the individual object level rather than just model-wide. Unfold's integration ensures that Guardian's permission management interface matches your admin's modern design.
+
+<Info>
+  Object permissions enable fine-grained access control, such as allowing a user to edit only their own posts, not all posts.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-guardian">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-guardian
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add both `unfold.contrib.guardian` and `guardian` to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.guardian",  # Must come before guardian
+        
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        # ...
+        
+        "guardian",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Configure authentication backend">
+    Add Guardian's authentication backend to your settings:
+    
+    ```python settings.py
+    AUTHENTICATION_BACKENDS = [
+        "django.contrib.auth.backends.ModelBackend",  # Default backend
+        "guardian.backends.ObjectPermissionBackend",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Apply Guardian's database migrations:
+    
+    ```bash
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+## How It Works
+
+The `unfold.contrib.guardian` app overrides all templates provided by django-guardian with Unfold-styled versions. This ensures:
+
+- Consistent visual design across your admin interface
+- Proper integration with Unfold's color scheme and typography
+- Support for both light and dark modes
+- Responsive layout for mobile devices
+
+<Note>
+  No additional configuration is needed in your admin classes. Guardian automatically adds an "Object permissions" button to your change forms.
+</Note>
+
+## Usage Example
+
+### Basic Model Setup
+
+Configure your models to work with Guardian:
+
+```python models.py
+from django.db import models
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        permissions = [
+            ("view_private_article", "Can view private article"),
+            ("edit_article_metadata", "Can edit article metadata"),
+        ]
+```
+
+### Admin Configuration
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "author", "created_at"]
+    list_filter = ["created_at"]
+    search_fields = ["title", "content"]
+```
+
+### Assigning Permissions
+
+Use Guardian's API to assign object-level permissions:
+
+```python views.py
+from guardian.shortcuts import assign_perm, remove_perm
+from .models import Article
+
+# Assign permission
+article = Article.objects.get(id=1)
+assign_perm("change_article", user, article)
+assign_perm("view_private_article", group, article)
+
+# Remove permission
+remove_perm("change_article", user, article)
+```
+
+### Checking Permissions
+
+```python
+from guardian.shortcuts import get_objects_for_user
+
+# Get all articles user can change
+articles = get_objects_for_user(user, "myapp.change_article")
+
+# Check if user has permission
+if user.has_perm("change_article", article):
+    # User can change this specific article
+    pass
+```
+
+## Object Permissions Button
+
+When viewing an object's change form, Guardian adds an "Object permissions" button that opens a dedicated interface for managing permissions:
+
+<Frame>
+  <img src="/images/django-guardian-button.png" alt="Object permissions button" />
+</Frame>
+
+### Permission Management Interface
+
+The permissions interface allows you to:
+
+- View all users and groups with permissions for the object
+- Assign new permissions to users or groups
+- Remove existing permissions
+- See inherited permissions from groups
+
+<Tip>
+  Use the search functionality to quickly find users or groups when assigning permissions to large teams.
+</Tip>
+
+## Advanced Features
+
+### Per-Object Permissions in Admin
+
+Customize which users see which objects in the admin:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from guardian.admin import GuardedModelAdmin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin, GuardedModelAdmin):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return get_objects_for_user(
+            request.user, 
+            "myapp.view_article",
+            qs
+        )
+```
+
+### Custom Permission Checks
+
+Implement custom permission logic:
+
+```python admin.py
+class ArticleAdmin(ModelAdmin):
+    def has_change_permission(self, request, obj=None):
+        if obj is None:
+            return super().has_change_permission(request)
+        return request.user.has_perm("change_article", obj)
+    
+    def has_delete_permission(self, request, obj=None):
+        if obj is None:
+            return super().has_delete_permission(request)
+        return request.user.has_perm("delete_article", obj)
+```
+
+## Live Demo
+
+<Card 
+  title="Explore Django Guardian Integration" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/formula/driver/56/permissions/"
+>
+  View object permissions management in action with Unfold's styled interface
+</Card>
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Multi-tenant applications">
+    Restrict users to only see and edit objects belonging to their organization:
+    
+    ```python
+    # Assign all org objects to org members
+    for obj in organization.objects.all():
+        assign_perm("view_object", org_member, obj)
+        assign_perm("change_object", org_member, obj)
+    ```
+  </Accordion>
+  
+  <Accordion title="Collaborative editing">
+    Allow specific users to collaborate on documents:
+    
+    ```python
+    # Share document with collaborators
+    for collaborator in document.collaborators.all():
+        assign_perm("change_document", collaborator, document)
+        assign_perm("view_document", collaborator, document)
+    ```
+  </Accordion>
+  
+  <Accordion title="Hierarchical permissions">
+    Implement role-based permissions with different access levels:
+    
+    ```python
+    # Managers can change, staff can view
+    assign_perm("change_report", manager_group, report)
+    assign_perm("view_report", staff_group, report)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Django Guardian Docs" icon="book" href="https://django-guardian.readthedocs.io/">
+    Official documentation and API reference
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/django-guardian/django-guardian">
+    Source code and issue tracker
+  </Card>
+</CardGroup>
+
+<Warning>
+  Object permissions are stored in the database and can impact performance on large datasets. Consider caching strategies for production use.
+</Warning>

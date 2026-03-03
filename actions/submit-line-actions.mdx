@@ -1,0 +1,434 @@
+---
+title: Submit Line Actions
+description: Add custom buttons to Django admin form submit lines alongside Save and Delete
+---
+
+Submit line actions appear as additional buttons in the form submit line (bottom of the change form), alongside Django's default "Save", "Save and continue editing", and "Delete" buttons. They're perfect for save-and-redirect workflows, custom save operations, or triggered actions after form submission.
+
+## Configuration
+
+Submit line actions are configured using the `actions_submit_line` attribute:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_submit_line = [
+        "save_and_notify",
+        "save_and_publish",
+        "save_as_draft",
+    ]
+```
+
+## Basic Submit Line Action
+
+A submit line action receives `request` and the object instance (`obj`) as parameters:
+
+```python
+from django.contrib import messages
+from unfold.decorators import action
+
+@action(description="Save & Notify")
+def save_and_notify(self, request, obj):
+    # Object has already been saved by save_model()
+    # Perform post-save operations
+    self._send_notification(obj)
+    
+    messages.success(request, f"Saved and notification sent for: {obj.title}")
+    # No redirect needed - Django handles this
+```
+
+<Warning>
+  Submit line actions are executed **after** `save_model()` has already saved the object. The object passed to your action is the saved instance.
+</Warning>
+
+## Key Differences from Other Actions
+
+Submit line actions work differently from other action types:
+
+<AccordionGroup>
+  <Accordion title="Execution timing" icon="clock">
+    Submit line actions run **after** the form is saved via `save_model()`, not before.
+  </Accordion>
+
+  <Accordion title="No redirect required" icon="arrow-right">
+    Unlike other actions, submit line actions should **not** return a redirect. Django handles the redirect based on which save button was pressed (Save, Save and continue, etc.).
+  </Accordion>
+
+  <Accordion title="Object parameter" icon="cube">
+    Submit line actions receive the saved `obj` instance, not `object_id`.
+  </Accordion>
+
+  <Accordion title="Form validation" icon="check">
+    Actions only execute if the form is valid and saves successfully.
+  </Accordion>
+</AccordionGroup>
+
+## Styled Submit Line Actions
+
+Add visual styling with icons and variants:
+
+```python
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Save & Publish",
+    icon="upload",
+    variant=ActionVariant.SUCCESS
+)
+def save_and_publish(self, request, obj):
+    obj.status = "published"
+    obj.published_at = timezone.now()
+    obj.save()
+    messages.success(request, f"Published: {obj.title}")
+
+@action(
+    description="Save as Draft",
+    icon="file",
+    variant=ActionVariant.INFO
+)
+def save_as_draft(self, request, obj):
+    obj.status = "draft"
+    obj.save()
+    messages.info(request, "Saved as draft")
+
+@action(
+    description="Save & Archive",
+    icon="box-archive",
+    variant=ActionVariant.WARNING
+)
+def save_and_archive(self, request, obj):
+    obj.archived = True
+    obj.archived_at = timezone.now()
+    obj.save()
+    messages.warning(request, "Archived")
+```
+
+## Permission-Protected Submit Line Actions
+
+Control access with permissions:
+
+```python
+@action(
+    description="Save & Publish",
+    permissions=["myapp.publish_article"],
+    icon="check-circle",
+    variant=ActionVariant.SUCCESS
+)
+def save_and_publish(self, request, obj):
+    obj.status = "published"
+    obj.published_by = request.user
+    obj.save()
+    messages.success(request, "Article published")
+
+@action(
+    description="Save & Approve",
+    permissions=["approve"],
+    variant=ActionVariant.PRIMARY
+)
+def save_and_approve(self, request, obj):
+    obj.approved = True
+    obj.approved_by = request.user
+    obj.save()
+    messages.success(request, "Article approved")
+
+def has_approve_permission(self, request, object_id):
+    # Can only approve others' articles
+    if object_id:
+        obj = self.get_object(request, object_id)
+        return obj.author != request.user
+    return False
+```
+
+<Note>
+  Permission methods for submit line actions receive `object_id` (not `obj`), matching the signature of detail action permission methods.
+</Note>
+
+## Workflow Actions Example
+
+Implement a complete workflow with submit line actions:
+
+```python admin.py
+from django.contrib import admin, messages
+from django.utils import timezone
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+from .models import Article
+from .notifications import notify_reviewers, notify_author
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_submit_line = [
+        "save_as_draft",
+        "save_and_submit_review",
+        "save_and_approve",
+        "save_and_publish",
+    ]
+
+    @action(
+        description="Save as Draft",
+        icon="file",
+        variant=ActionVariant.INFO
+    )
+    def save_as_draft(self, request, obj):
+        obj.status = "draft"
+        obj.save()
+        messages.info(request, f"Saved as draft: {obj.title}")
+
+    @action(
+        description="Save & Submit for Review",
+        permissions=["submit_review"],
+        icon="paper-plane",
+        variant=ActionVariant.PRIMARY
+    )
+    def save_and_submit_review(self, request, obj):
+        obj.status = "in_review"
+        obj.submitted_at = timezone.now()
+        obj.submitted_by = request.user
+        obj.save()
+        
+        # Notify reviewers
+        notify_reviewers(obj)
+        
+        messages.success(request, "Submitted for review")
+
+    def has_submit_review_permission(self, request, object_id):
+        if not object_id:
+            return True
+        obj = self.get_object(request, object_id)
+        return obj.author == request.user and obj.status == "draft"
+
+    @action(
+        description="Save & Approve",
+        permissions=["approve"],
+        icon="check-circle",
+        variant=ActionVariant.SUCCESS
+    )
+    def save_and_approve(self, request, obj):
+        obj.status = "approved"
+        obj.approved_at = timezone.now()
+        obj.approved_by = request.user
+        obj.save()
+        
+        # Notify author
+        notify_author(obj, "approved")
+        
+        messages.success(request, f"Approved: {obj.title}")
+
+    def has_approve_permission(self, request, object_id):
+        if not request.user.groups.filter(name="Editors").exists():
+            return False
+        
+        if not object_id:
+            return True
+            
+        obj = self.get_object(request, object_id)
+        return obj.status == "in_review" and obj.author != request.user
+
+    @action(
+        description="Save & Publish",
+        permissions=["myapp.publish_article"],
+        icon="upload",
+        variant=ActionVariant.SUCCESS
+    )
+    def save_and_publish(self, request, obj):
+        obj.status = "published"
+        obj.published_at = timezone.now()
+        obj.published_by = request.user
+        obj.save()
+        
+        # Clear cache, notify subscribers, etc.
+        self._clear_cache(obj)
+        
+        messages.success(request, f"Published: {obj.title}")
+```
+
+## Save and Notify Example
+
+Trigger notifications after saving:
+
+```python
+from django.core.mail import send_mail
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Save & Notify Team",
+    icon="bell",
+    variant=ActionVariant.INFO
+)
+def save_and_notify(self, request, obj):
+    # Send email notification
+    send_mail(
+        subject=f"Article Updated: {obj.title}",
+        message=f"{request.user.get_full_name()} updated '{obj.title}'",
+        from_email="admin@example.com",
+        recipient_list=["team@example.com"],
+    )
+    
+    messages.success(request, "Saved and team notified")
+
+@action(
+    description="Save & Send Preview",
+    icon="envelope",
+    variant=ActionVariant.PRIMARY
+)
+def save_and_send_preview(self, request, obj):
+    # Generate preview and send to reviewers
+    preview_url = obj.generate_preview_url()
+    
+    send_mail(
+        subject=f"Preview: {obj.title}",
+        message=f"Preview available at: {preview_url}",
+        from_email="admin@example.com",
+        recipient_list=obj.get_reviewer_emails(),
+    )
+    
+    messages.success(request, "Preview sent to reviewers")
+```
+
+## Integration with External Services
+
+Trigger external service updates after save:
+
+```python
+import requests
+from django.conf import settings
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Save & Sync to CMS",
+    icon="cloud-arrow-up",
+    variant=ActionVariant.PRIMARY
+)
+def save_and_sync_cms(self, request, obj):
+    # Sync to external CMS
+    try:
+        response = requests.post(
+            f"{settings.CMS_API_URL}/articles/{obj.id}/sync",
+            json={
+                "title": obj.title,
+                "content": obj.content,
+                "author": obj.author.username,
+            },
+            headers={"Authorization": f"Bearer {settings.CMS_API_TOKEN}"}
+        )
+        response.raise_for_status()
+        
+        messages.success(request, "Synced to CMS successfully")
+    except requests.RequestException as e:
+        messages.error(request, f"CMS sync failed: {e}")
+
+@action(
+    description="Save & Invalidate Cache",
+    icon="rotate",
+    variant=ActionVariant.WARNING
+)
+def save_and_clear_cache(self, request, obj):
+    # Clear CDN cache
+    cache_keys = [
+        f"article:{obj.id}",
+        f"article:slug:{obj.slug}",
+        "article:list",
+    ]
+    
+    from django.core.cache import cache
+    cache.delete_many(cache_keys)
+    
+    messages.success(request, "Cache invalidated")
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Don't return redirects" icon="ban">
+    Submit line actions should NOT return `HttpResponse` or redirects. Django handles navigation:
+    ```python
+    # ✅ Correct
+    def save_and_publish(self, request, obj):
+        obj.status = "published"
+        obj.save()
+        messages.success(request, "Published")
+        # No return statement
+    
+    # ❌ Wrong
+    def save_and_publish(self, request, obj):
+        obj.status = "published"
+        obj.save()
+        return redirect("...")  # Don't do this!
+    ```
+  </Accordion>
+
+  <Accordion title="Save additional changes" icon="floppy-disk">
+    If your action modifies the object, call `save()` again:
+    ```python
+    def save_and_publish(self, request, obj):
+        obj.status = "published"
+        obj.published_at = timezone.now()
+        obj.save()  # Save the changes made in this action
+    ```
+  </Accordion>
+
+  <Accordion title="Use appropriate variants" icon="palette">
+    Choose variants that indicate the action's impact:
+    - `SUCCESS` for publishing/approving
+    - `INFO` for drafts/saves
+    - `WARNING` for archiving/deprecating
+    - `PRIMARY` for main workflow actions
+  </Accordion>
+
+  <Accordion title="Provide clear feedback" icon="message">
+    Always use messages to confirm the action:
+    ```python
+    messages.success(request, f"Published: {obj.title}")
+    ```
+  </Accordion>
+
+  <Accordion title="Handle errors gracefully" icon="shield">
+    Wrap external calls in try-except blocks:
+    ```python
+    try:
+        external_service.sync(obj)
+        messages.success(request, "Synced successfully")
+    except Exception as e:
+        messages.error(request, f"Sync failed: {e}")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Hiding Default Buttons
+
+If you want to completely replace Django's default submit buttons:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail_hide_default = True
+    actions_submit_line = [
+        "save_as_draft",
+        "save_and_publish",
+    ]
+```
+
+<Warning>
+  When hiding default buttons, ensure your submit line actions provide all necessary save functionality.
+</Warning>
+
+## Related Actions
+
+<CardGroup cols={2}>
+  <Card title="Detail Actions" icon="file-pen" href="/actions/detail-actions">
+    Add actions to the top of change forms
+  </Card>
+  <Card title="Actions Overview" icon="book" href="/actions/overview">
+    Learn about all action types
+  </Card>
+</CardGroup>

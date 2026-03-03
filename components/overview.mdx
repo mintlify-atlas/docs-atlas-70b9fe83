@@ -1,0 +1,166 @@
+---
+title: Components Overview
+description: Build custom admin interfaces with Django Unfold's reusable UI components
+---
+
+Django Unfold provides a comprehensive set of reusable UI components to help you build custom dashboards, change forms, and admin interfaces. These components follow Unfold's design system and work seamlessly with Django templates.
+
+## Component System
+
+Unfold components are rendered using Django's template system with the `{% component %}` template tag. Components are designed to be flexible and composable, allowing you to build complex interfaces from simple building blocks.
+
+### Basic Usage
+
+Components are included in templates using the `{% component %}` tag:
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/card.html" with title="Dashboard" %}
+  <p>Your content here</p>
+{% endcomponent %}
+```
+
+### Component Registry
+
+Unfold uses a component registry system for Python-based components that need to process request data:
+
+```python
+from unfold.components import BaseComponent, register_component
+from django.http import HttpRequest
+
+@register_component
+class CustomComponent(BaseComponent):
+    def __init__(self, request: HttpRequest):
+        super().__init__(request)
+    
+    def get_context_data(self, **kwargs):
+        return {
+            **kwargs,
+            "custom_data": "value"
+        }
+```
+
+## Available Components
+
+Unfold includes the following built-in components:
+
+<CardGroup cols={2}>
+  <Card title="Card" icon="square" href="/components/card">
+    Container component for grouping related content with optional title, footer, and actions
+  </Card>
+  
+  <Card title="Button" icon="touch-app" href="/components/button">
+    Interactive button component with multiple variants and states
+  </Card>
+  
+  <Card title="Table" icon="table" href="/components/table">
+    Display tabular data with headers, responsive layout, and optional collapsible rows
+  </Card>
+  
+  <Card title="Progress" icon="show-chart" href="/components/progress">
+    Visualize progress or percentage values with customizable bars
+  </Card>
+  
+  <Card title="Tracker" icon="grid-on" href="/components/tracker">
+    Display time-series data in a compact grid format (e.g., contribution graphs)
+  </Card>
+  
+  <Card title="Layer" icon="layers" href="/components/layer">
+    Generic wrapper component for custom layouts and compositions
+  </Card>
+</CardGroup>
+
+## Component Props
+
+Most components accept common properties:
+
+- `class` - Additional CSS classes to apply
+- `title` - Component title or heading
+- `children` - Nested content within the component
+
+## Using Components in Admin
+
+Components can be used in various parts of the Django admin:
+
+### Custom Admin Views
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.views import UnfoldModelAdminViewMixin
+from django.views.generic import TemplateView
+
+class DashboardView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Dashboard"
+    template_name = "admin/dashboard.html"
+
+@admin.register(MyModel)
+class MyModelAdmin(ModelAdmin):
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('dashboard/', 
+                 self.admin_site.admin_view(DashboardView.as_view(model_admin=self)),
+                 name='dashboard'),
+        ]
+        return custom_urls + urls
+```
+
+### Template Sections
+
+```python
+from unfold.sections import TemplateSection
+
+class CustomSection(TemplateSection):
+    template_name = "admin/custom_section.html"
+    
+    def get_context_data(self, request, instance):
+        return {
+            "stats": self.calculate_stats(instance)
+        }
+
+@admin.register(MyModel)
+class MyModelAdmin(ModelAdmin):
+    list_sections = [CustomSection]
+```
+
+### Change Form Templates
+
+Components can be used in custom change form templates by overriding the default templates.
+
+## Component Composition
+
+Components can be nested to create complex layouts:
+
+```django
+{% component "unfold/components/card.html" with title="Overview" %}
+  <div class="grid grid-cols-2 gap-4">
+    {% component "unfold/components/progress.html" with title="Completion" value=75 %}
+    {% endcomponent %}
+    
+    {% component "unfold/components/progress.html" with title="Success Rate" value=92 %}
+    {% endcomponent %}
+  </div>
+{% endcomponent %}
+```
+
+## Styling Components
+
+Components use Tailwind CSS classes and follow Unfold's design system. You can customize appearance using:
+
+- The `class` parameter for additional CSS classes
+- Theme configuration in `settings.py`
+- Custom CSS in your project
+
+## Next Steps
+
+Explore individual component documentation to learn about specific features and usage:
+
+- [Card Component](/components/card) - Container and layout
+- [Button Component](/components/button) - Interactive elements
+- [Table Component](/components/table) - Data display
+- [Progress Component](/components/progress) - Progress indicators
+- [Tracker Component](/components/tracker) - Activity tracking
+- [Layer Component](/components/layer) - Custom layouts

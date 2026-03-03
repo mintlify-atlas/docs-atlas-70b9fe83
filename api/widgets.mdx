@@ -1,0 +1,494 @@
+---
+title: Widgets
+description: Complete API reference for Unfold form widgets
+---
+
+## Overview
+
+Unfold provides a comprehensive set of form widgets with consistent styling and enhanced functionality.
+
+## Text Input Widgets
+
+### UnfoldAdminTextInputWidget
+
+```python
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+UnfoldAdminTextInputWidget(attrs: dict[str, Any] | None = None)
+```
+
+Standard text input with Unfold styling. Supports prefix/suffix icons and text.
+
+<ParamField path="attrs" type="dict[str, Any] | None">
+  HTML attributes for the input. Supports special keys:
+  - `prefix`: Text to display before the input
+  - `prefix_icon`: Material icon name to display before the input
+  - `suffix`: Text to display after the input
+  - `suffix_icon`: Material icon name to display after the input
+</ParamField>
+
+```python
+# Example usage
+widget=UnfoldAdminTextInputWidget(attrs={
+    "prefix_icon": "search",
+    "placeholder": "Search..."
+})
+```
+
+### UnfoldAdminURLInputWidget
+
+```python
+from unfold.widgets import UnfoldAdminURLInputWidget
+
+UnfoldAdminURLInputWidget(attrs: dict[str, Any] | None = None)
+```
+
+URL input field with validation and link preview.
+
+### UnfoldAdminEmailInputWidget
+
+```python
+from unfold.widgets import UnfoldAdminEmailInputWidget
+
+UnfoldAdminEmailInputWidget(attrs: dict[str, Any] | None = None)
+```
+
+Email input field with validation.
+
+### UnfoldAdminPasswordWidget
+
+```python
+from unfold.widgets import UnfoldAdminPasswordWidget
+
+UnfoldAdminPasswordWidget(
+    attrs: dict[str, Any] | None = None,
+    render_value: bool = False
+)
+```
+
+Password input field.
+
+### UnfoldAdminPasswordToggleWidget
+
+```python
+from unfold.widgets import UnfoldAdminPasswordToggleWidget
+```
+
+Password input with visibility toggle button.
+
+### UnfoldAdminUUIDInputWidget
+
+```python
+from unfold.widgets import UnfoldAdminUUIDInputWidget
+
+UnfoldAdminUUIDInputWidget(attrs: dict[str, Any] | None = None)
+```
+
+UUID input field with validation.
+
+### UnfoldAdminColorInputWidget
+
+```python
+from unfold.widgets import UnfoldAdminColorInputWidget
+
+UnfoldAdminColorInputWidget(attrs: dict[str, Any] | None = None)
+```
+
+Color picker input.
+
+## Numeric Widgets
+
+### UnfoldAdminIntegerFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminIntegerFieldWidget
+
+UnfoldAdminIntegerFieldWidget(attrs: dict[str, Any] | None = None)
+```
+
+Integer input with validation.
+
+### UnfoldAdminBigIntegerFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminBigIntegerFieldWidget
+
+UnfoldAdminBigIntegerFieldWidget(attrs: dict[str, Any] | None = None)
+```
+
+Big integer input with validation.
+
+### UnfoldAdminDecimalFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminDecimalFieldWidget
+
+UnfoldAdminDecimalFieldWidget(attrs: dict[str, Any] | None = None)
+```
+
+Decimal number input.
+
+### UnfoldAdminIntegerRangeWidget
+
+```python
+from unfold.widgets import UnfoldAdminIntegerRangeWidget
+
+UnfoldAdminIntegerRangeWidget(attrs: dict[str, Any] | None = None)
+```
+
+Widget for integer range fields (PostgreSQL IntegerRangeField).
+
+## Textarea Widgets
+
+### UnfoldAdminTextareaWidget
+
+```python
+from unfold.widgets import UnfoldAdminTextareaWidget
+
+UnfoldAdminTextareaWidget(attrs: dict[str, Any] | None = None)
+```
+
+Multi-line text input.
+
+### UnfoldAdminExpandableTextareaWidget
+
+```python
+from unfold.widgets import UnfoldAdminExpandableTextareaWidget
+
+UnfoldAdminExpandableTextareaWidget(attrs: dict[str, Any] | None = None)
+```
+
+Textarea that automatically expands based on content.
+
+## Date and Time Widgets
+
+### UnfoldAdminDateWidget
+
+```python
+from unfold.widgets import UnfoldAdminDateWidget
+
+UnfoldAdminDateWidget(
+    attrs: dict[str, Any] | None = None,
+    format: str | None = None
+)
+```
+
+Date picker widget with calendar.
+
+### UnfoldAdminTimeWidget
+
+```python
+from unfold.widgets import UnfoldAdminTimeWidget
+
+UnfoldAdminTimeWidget(
+    attrs: dict[str, Any] | None = None,
+    format: str | None = None
+)
+```
+
+Time picker widget.
+
+### UnfoldAdminSplitDateTimeWidget
+
+```python
+from unfold.widgets import UnfoldAdminSplitDateTimeWidget
+
+UnfoldAdminSplitDateTimeWidget(attrs: dict[str, Any] | None = None)
+```
+
+Split date and time inputs displayed horizontally.
+
+### UnfoldAdminSplitDateTimeVerticalWidget
+
+```python
+from unfold.widgets import UnfoldAdminSplitDateTimeVerticalWidget
+
+UnfoldAdminSplitDateTimeVerticalWidget(
+    attrs: dict[str, Any] | None = None,
+    date_attrs: dict[str, Any] | None = None,
+    time_attrs: dict[str, Any] | None = None,
+    date_label: str | None = None,
+    time_label: str | None = None
+)
+```
+
+Split date and time inputs displayed vertically with labels.
+
+## Select Widgets
+
+### UnfoldAdminSelectWidget
+
+```python
+from unfold.widgets import UnfoldAdminSelectWidget
+
+UnfoldAdminSelectWidget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Standard select dropdown.
+
+### UnfoldAdminSelectMultipleWidget
+
+```python
+from unfold.widgets import UnfoldAdminSelectMultipleWidget
+
+UnfoldAdminSelectMultipleWidget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Multiple selection dropdown.
+
+### UnfoldAdminNullBooleanSelectWidget
+
+```python
+from unfold.widgets import UnfoldAdminNullBooleanSelectWidget
+
+UnfoldAdminNullBooleanSelectWidget(attrs: dict[str, Any] | None = None)
+```
+
+Select widget for nullable boolean fields (True/False/Unknown).
+
+### UnfoldAdminSelect2Widget
+
+```python
+from unfold.widgets import UnfoldAdminSelect2Widget
+
+UnfoldAdminSelect2Widget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Select2-enhanced dropdown with search.
+
+### UnfoldAdminSelect2MultipleWidget
+
+```python
+from unfold.widgets import UnfoldAdminSelect2MultipleWidget
+
+UnfoldAdminSelect2MultipleWidget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Select2-enhanced multiple selection dropdown.
+
+## Autocomplete Widgets
+
+### UnfoldAdminAutocompleteWidget
+
+```python
+from unfold.widgets import UnfoldAdminAutocompleteWidget
+
+UnfoldAdminAutocompleteWidget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Ajax-powered autocomplete widget.
+
+### UnfoldAdminMultipleAutocompleteWidget
+
+```python
+from unfold.widgets import UnfoldAdminMultipleAutocompleteWidget
+
+UnfoldAdminMultipleAutocompleteWidget(
+    attrs: dict[str, Any] | None = None,
+    choices: tuple | list = ()
+)
+```
+
+Ajax-powered multiple selection autocomplete.
+
+### UnfoldAdminAutocompleteModelChoiceFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminAutocompleteModelChoiceFieldWidget
+```
+
+Autocomplete for model choice fields.
+
+### UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget
+```
+
+Autocomplete for multiple model choice fields.
+
+## Boolean Widgets
+
+### UnfoldBooleanWidget
+
+```python
+from unfold.widgets import UnfoldBooleanWidget
+
+UnfoldBooleanWidget(
+    attrs: dict[str, Any] | None = None,
+    check_test: Callable | None = None
+)
+```
+
+Checkbox for boolean fields.
+
+### UnfoldBooleanSwitchWidget
+
+```python
+from unfold.widgets import UnfoldBooleanSwitchWidget
+
+UnfoldBooleanSwitchWidget(
+    attrs: dict[str, Any] | None = None,
+    check_test: Callable | None = None
+)
+```
+
+Toggle switch for boolean fields.
+
+## Radio and Checkbox Widgets
+
+### UnfoldAdminRadioSelectWidget
+
+```python
+from unfold.widgets import UnfoldAdminRadioSelectWidget
+
+UnfoldAdminRadioSelectWidget(
+    radio_style: int | None = None,
+    *args,
+    **kwargs
+)
+```
+
+Radio button group.
+
+<ParamField path="radio_style" type="int | None">
+  Layout style. Use `VERTICAL` or `HORIZONTAL` from `django.contrib.admin.options`.
+</ParamField>
+
+### UnfoldAdminCheckboxSelectMultipleWidget
+
+```python
+from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget
+
+UnfoldAdminCheckboxSelectMultipleWidget(*args, **kwargs)
+```
+
+Checkbox group for multiple selection.
+
+## File Widgets
+
+### UnfoldAdminFileFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminFileFieldWidget
+```
+
+File upload widget.
+
+### UnfoldAdminImageFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminImageFieldWidget
+```
+
+Image upload widget with preview.
+
+### UnfoldAdminImageSmallFieldWidget
+
+```python
+from unfold.widgets import UnfoldAdminImageSmallFieldWidget
+```
+
+Compact image upload widget.
+
+## Relation Widgets
+
+### UnfoldForeignKeyRawIdWidget
+
+```python
+from unfold.widgets import UnfoldForeignKeyRawIdWidget
+
+UnfoldForeignKeyRawIdWidget(
+    rel: ManyToOneRel,
+    admin_site: AdminSite,
+    attrs: dict[str, Any] | None = None,
+    using: Any | None = None
+)
+```
+
+Raw ID widget for foreign key fields.
+
+### UnfoldAdminRelatedFieldWrapperWidget
+
+```python
+from unfold.widgets import UnfoldAdminRelatedFieldWrapperWidget
+```
+
+Wrapper for related field widgets with add/change/delete links.
+
+## Third-Party Integration Widgets
+
+### UnfoldAdminMoneyWidget
+
+```python
+from unfold.widgets import UnfoldAdminMoneyWidget
+
+UnfoldAdminMoneyWidget(*args, **kwargs)
+```
+
+Widget for django-money fields. Requires `django-money` package.
+
+### UnfoldAdminLocationWidget
+
+```python
+from unfold.widgets import UnfoldAdminLocationWidget
+
+UnfoldAdminLocationWidget(
+    attrs: dict[str, Any] | None = None,
+    **kwargs
+)
+```
+
+Widget for django-location-field. Requires `django-location-field` package.
+
+## Usage in Forms
+
+```python
+from django import forms
+from unfold.widgets import (
+    UnfoldAdminTextInputWidget,
+    UnfoldAdminTextareaWidget,
+    UnfoldBooleanSwitchWidget,
+)
+
+class ArticleForm(forms.ModelForm):
+    class Meta:
+        model = Article
+        fields = "__all__"
+        widgets = {
+            "title": UnfoldAdminTextInputWidget(
+                attrs={"prefix_icon": "title"}
+            ),
+            "content": UnfoldAdminTextareaWidget(),
+            "is_published": UnfoldBooleanSwitchWidget(),
+        }
+```
+
+## Usage in ModelAdmin
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminSplitDateTimeWidget
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    formfield_overrides = {
+        models.DateTimeField: {"widget": UnfoldAdminSplitDateTimeWidget},
+    }
+```

@@ -1,0 +1,230 @@
+---
+title: 'Favicon configuration'
+description: 'Configure favicons for Django Unfold admin interface'
+keywords: ['favicon', 'icons', 'branding', 'site icon']
+---
+
+Django Unfold supports multiple favicon formats and sizes for comprehensive browser and device support.
+
+## Favicon configuration
+
+<ParamField path="SITE_FAVICONS" type="array" default="[]">
+  List of favicon configurations for different sizes and formats. Supports ICO, PNG, SVG, and Apple Touch icons.
+</ParamField>
+
+Configure favicons in your Django settings:
+
+```python settings.py
+UNFOLD = {
+    "SITE_FAVICONS": [
+        {
+            "rel": "icon",
+            "sizes": "32x32",
+            "type": "image/png",
+            "href": "favicons/favicon-32x32.png",
+        },
+        {
+            "rel": "icon",
+            "sizes": "16x16",
+            "type": "image/png",
+            "href": "favicons/favicon-16x16.png",
+        },
+        {
+            "rel": "apple-touch-icon",
+            "sizes": "180x180",
+            "href": "favicons/apple-touch-icon.png",
+        },
+    ],
+}
+```
+
+## Favicon object structure
+
+Each favicon object in the array supports the following properties:
+
+<ParamField path="rel" type="string" required>
+  Link relationship type. Common values:
+  - `icon` - Standard favicon
+  - `apple-touch-icon` - Apple device icon
+  - `shortcut icon` - Legacy favicon (ICO format)
+</ParamField>
+
+<ParamField path="sizes" type="string">
+  Icon dimensions in `WIDTHxHEIGHT` format (e.g., `32x32`, `180x180`).
+</ParamField>
+
+<ParamField path="type" type="string">
+  MIME type of the icon file:
+  - `image/png` - PNG format
+  - `image/svg+xml` - SVG format
+  - `image/x-icon` - ICO format
+</ParamField>
+
+<ParamField path="href" type="string" required>
+  Path to the icon file relative to your static files directory.
+</ParamField>
+
+## Complete favicon set
+
+For comprehensive browser and device support, include multiple sizes:
+
+```python settings.py
+UNFOLD = {
+    "SITE_FAVICONS": [
+        # Standard favicons
+        {
+            "rel": "icon",
+            "sizes": "32x32",
+            "type": "image/png",
+            "href": "favicons/favicon-32x32.png",
+        },
+        {
+            "rel": "icon",
+            "sizes": "16x16",
+            "type": "image/png",
+            "href": "favicons/favicon-16x16.png",
+        },
+        # Apple Touch Icon
+        {
+            "rel": "apple-touch-icon",
+            "sizes": "180x180",
+            "href": "favicons/apple-touch-icon.png",
+        },
+        # SVG favicon (modern browsers)
+        {
+            "rel": "icon",
+            "type": "image/svg+xml",
+            "href": "favicons/favicon.svg",
+        },
+        # Legacy ICO format
+        {
+            "rel": "shortcut icon",
+            "type": "image/x-icon",
+            "href": "favicons/favicon.ico",
+        },
+    ],
+}
+```
+
+## File structure
+
+Organize your favicon files in your static directory:
+
+```
+project/
+├── static/
+│   └── favicons/
+│       ├── favicon.ico
+│       ├── favicon.svg
+│       ├── favicon-16x16.png
+│       ├── favicon-32x32.png
+│       └── apple-touch-icon.png
+├── manage.py
+└── settings.py
+```
+
+## Recommended sizes
+
+### Standard favicons
+
+- **16x16** - Browser tab (legacy)
+- **32x32** - Browser tab (standard)
+- **48x48** - Windows site icons
+
+### Apple devices
+
+- **180x180** - Apple Touch Icon (iOS home screen)
+
+### Android devices
+
+- **192x192** - Android Chrome
+- **512x512** - Android Chrome (high resolution)
+
+### Modern format
+
+- **SVG** - Scalable vector icon (recommended for modern browsers)
+
+## SVG favicon
+
+SVG favicons are scalable and support theme colors:
+
+```svg favicon.svg
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .icon { fill: #667eea; }
+    @media (prefers-color-scheme: dark) {
+      .icon { fill: #a78bfa; }
+    }
+  </style>
+  <circle class="icon" cx="16" cy="16" r="14" />
+</svg>
+```
+
+```python settings.py
+UNFOLD = {
+    "SITE_FAVICONS": [
+        {
+            "rel": "icon",
+            "type": "image/svg+xml",
+            "href": "favicons/favicon.svg",
+        },
+    ],
+}
+```
+
+## Generating favicons
+
+Tools for creating favicon sets:
+
+- [RealFaviconGenerator](https://realfavicongenerator.net) - Generate complete favicon sets
+- [Favicon.io](https://favicon.io) - Simple favicon generator
+- [Figma](https://figma.com) - Design custom icons
+
+## Static files setup
+
+Ensure static files are properly configured:
+
+```python settings.py
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+```
+
+Collect static files for production:
+
+```bash
+python manage.py collectstatic
+```
+
+## Browser caching
+
+Favicons are heavily cached by browsers. To force updates:
+
+1. Clear browser cache
+2. Add a version query parameter:
+
+```python settings.py
+UNFOLD = {
+    "SITE_FAVICONS": [
+        {
+            "rel": "icon",
+            "sizes": "32x32",
+            "type": "image/png",
+            "href": "favicons/favicon-32x32.png?v=2",
+        },
+    ],
+}
+```
+
+<Tip>
+Use SVG favicons when possible for crisp display at any size and automatic theme support.
+</Tip>
+
+<Info>
+If no favicons are configured, browsers will look for `/favicon.ico` at your site root.
+</Info>
+
+<Warning>
+Always test favicons across different browsers and devices. Some browsers cache favicons aggressively.
+</Warning>

@@ -1,0 +1,568 @@
+---
+title: "Theming"
+description: "Complete guide to theming Django Unfold with colors, dark mode, and custom styles"
+---
+
+## Introduction
+
+Django Unfold uses a sophisticated theming system built on Tailwind CSS and OKLCH color space. The theme automatically supports light and dark modes, with full customization of colors and spacing.
+
+<Info>
+Unfold uses OKLCH (Oklab LCH) color space for perceptually uniform colors that look great in both light and dark modes.
+</Info>
+
+## Color System
+
+Unfold's color system consists of three main palettes:
+
+<CardGroup cols={3}>
+  <Card title="Base Colors" icon="palette">
+    Neutral colors for backgrounds, borders, and text
+  </Card>
+  <Card title="Primary Colors" icon="swatchbook">
+    Brand colors for buttons, links, and accents
+  </Card>
+  <Card title="Font Colors" icon="font">
+    Semantic colors for text hierarchy
+  </Card>
+</CardGroup>
+
+## Default Color Palette
+
+Unfold comes with a carefully designed default palette:
+
+### Base Colors (Neutral)
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "base": {
+            "50": "oklch(98.5% .002 247.839)",   # Lightest
+            "100": "oklch(96.7% .003 264.542)",
+            "200": "oklch(92.8% .006 264.531)",
+            "300": "oklch(87.2% .01 258.338)",
+            "400": "oklch(70.7% .022 261.325)",
+            "500": "oklch(55.1% .027 264.364)",  # Mid-tone
+            "600": "oklch(44.6% .03 256.802)",
+            "700": "oklch(37.3% .034 259.733)",
+            "800": "oklch(27.8% .033 256.848)",
+            "900": "oklch(21% .034 264.665)",
+            "950": "oklch(13% .028 261.692)",    # Darkest
+        },
+    },
+}
+```
+
+**Usage:**
+- `50-200`: Light backgrounds, subtle borders
+- `300-500`: Borders, disabled states, subtle text
+- `600-950`: Dark backgrounds, important text
+
+### Primary Colors (Brand)
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "50": "oklch(97.7% .014 308.299)",
+            "100": "oklch(94.6% .033 307.174)",
+            "200": "oklch(90.2% .063 306.703)",
+            "300": "oklch(82.7% .119 306.383)",
+            "400": "oklch(71.4% .203 305.504)",
+            "500": "oklch(62.7% .265 303.9)",     # Main brand color
+            "600": "oklch(55.8% .288 302.321)",  # Primary default
+            "700": "oklch(49.6% .265 301.924)",
+            "800": "oklch(43.8% .218 303.724)",
+            "900": "oklch(38.1% .176 304.987)",
+            "950": "oklch(29.1% .149 302.717)",
+        },
+    },
+}
+```
+
+**Usage:**
+- `500-600`: Primary buttons, links, active states
+- `400-500`: Hover states, backgrounds
+- `700-900`: Pressed states, dark mode accents
+
+### Font Colors (Semantic)
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "font": {
+            "subtle-light": "var(--color-base-500)",
+            "subtle-dark": "var(--color-base-400)",
+            "default-light": "var(--color-base-600)",
+            "default-dark": "var(--color-base-300)",
+            "important-light": "var(--color-base-900)",
+            "important-dark": "var(--color-base-100)",
+        },
+    },
+}
+```
+
+**Usage:**
+- `subtle`: Helper text, placeholders, secondary content
+- `default`: Body text, form labels
+- `important`: Headings, emphasized content
+
+## Customizing Colors
+
+### Simple Brand Color Change
+
+The quickest way to match your brand:
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "500": "oklch(65% 0.25 275)",  # Blue
+            "600": "oklch(60% 0.25 275)",
+        },
+    },
+}
+```
+
+<Tip>
+You only need to override the weights you want to change. Unfold merges your colors with the defaults.
+</Tip>
+
+### Complete Brand Palette
+
+For full control, define all weights:
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "50": "oklch(97% 0.01 275)",
+            "100": "oklch(94% 0.03 275)",
+            "200": "oklch(88% 0.06 275)",
+            "300": "oklch(80% 0.12 275)",
+            "400": "oklch(70% 0.18 275)",
+            "500": "oklch(65% 0.25 275)",   # Main brand
+            "600": "oklch(60% 0.25 275)",   # Primary default
+            "700": "oklch(50% 0.22 275)",
+            "800": "oklch(40% 0.18 275)",
+            "900": "oklch(35% 0.15 275)",
+            "950": "oklch(25% 0.12 275)",
+        },
+    },
+}
+```
+
+### Using Hex Colors
+
+Unfold automatically converts hex colors to OKLCH:
+
+```python
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "500": "#3b82f6",  # Automatically converted
+            "600": "#2563eb",
+        },
+    },
+}
+```
+
+<Warning>
+Hex colors are converted to OKLCH, but the conversion might not preserve exact appearance. Use OKLCH for precise color control.
+</Warning>
+
+## Understanding OKLCH
+
+OKLCH color space provides perceptually uniform colors:
+
+```
+oklch(L% C H)
+```
+
+<Tabs>
+  <Tab title="Lightness (L)">
+    **0-100%**: Brightness of the color
+    
+    - `0%`: Black
+    - `50%`: Mid-tone
+    - `100%`: White
+    
+    Example:
+    ```python
+    "500": "oklch(65% 0.25 275)"  # 65% lightness
+    ```
+  </Tab>
+  
+  <Tab title="Chroma (C)">
+    **0-0.4**: Color intensity/saturation
+    
+    - `0`: Grayscale
+    - `0.1`: Subtle color
+    - `0.2-0.3`: Vivid
+    - `0.4`: Maximum saturation
+    
+    Example:
+    ```python
+    "500": "oklch(65% 0.25 275)"  # 0.25 chroma
+    ```
+  </Tab>
+  
+  <Tab title="Hue (H)">
+    **0-360**: Color angle on the color wheel
+    
+    - `0`: Red
+    - `120`: Green
+    - `180`: Cyan
+    - `240`: Blue
+    - `300`: Magenta
+    
+    Example:
+    ```python
+    "500": "oklch(65% 0.25 275)"  # 275° hue (blue)
+    ```
+  </Tab>
+</Tabs>
+
+### Creating a Color Palette
+
+Here's how to create a consistent palette:
+
+```python
+# Brand color: Blue at 275°
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            # Lighter shades: Increase lightness, decrease chroma
+            "50": "oklch(97% 0.01 275)",
+            "100": "oklch(94% 0.03 275)",
+            "200": "oklch(88% 0.06 275)",
+            "300": "oklch(80% 0.12 275)",
+            "400": "oklch(70% 0.18 275)",
+            
+            # Main brand colors
+            "500": "oklch(65% 0.25 275)",
+            "600": "oklch(60% 0.25 275)",
+            
+            # Darker shades: Decrease lightness and chroma
+            "700": "oklch(50% 0.22 275)",
+            "800": "oklch(40% 0.18 275)",
+            "900": "oklch(35% 0.15 275)",
+            "950": "oklch(25% 0.12 275)",
+        },
+    },
+}
+```
+
+<Info>
+For consistent palettes, keep hue constant and vary lightness and chroma proportionally.
+</Info>
+
+## Color Examples
+
+<Tabs>
+  <Tab title="Blue">
+    ```python
+    "primary": {
+        "500": "oklch(65% 0.25 275)",  # Blue
+        "600": "oklch(60% 0.25 275)",
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Green">
+    ```python
+    "primary": {
+        "500": "oklch(65% 0.20 145)",  # Green
+        "600": "oklch(60% 0.20 145)",
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Red">
+    ```python
+    "primary": {
+        "500": "oklch(65% 0.22 25)",   # Red
+        "600": "oklch(60% 0.22 25)",
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Purple">
+    ```python
+    "primary": {
+        "500": "oklch(65% 0.25 305)",  # Purple (default)
+        "600": "oklch(60% 0.25 305)",
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Orange">
+    ```python
+    "primary": {
+        "500": "oklch(70% 0.20 65)",   # Orange
+        "600": "oklch(65% 0.20 65)",
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Dark Mode
+
+Unfold automatically handles dark mode. Colors adjust based on the theme:
+
+### Automatic Color Adjustment
+
+```python
+# These automatically work in both themes
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "600": "oklch(60% 0.25 275)",  # Used as-is in both modes
+        },
+        "font": {
+            "default-light": "var(--color-base-600)",  # Light mode
+            "default-dark": "var(--color-base-300)",   # Dark mode
+        },
+    },
+}
+```
+
+### Theme-Specific Assets
+
+Provide different assets for each theme:
+
+```python
+UNFOLD = {
+    "SITE_LOGO": {
+        "light": "/static/logo-dark.svg",   # Dark logo for light bg
+        "dark": "/static/logo-light.svg",   # Light logo for dark bg
+    },
+    "SITE_ICON": {
+        "light": "/static/icon-dark.svg",
+        "dark": "/static/icon-light.svg",
+    },
+}
+```
+
+## Custom CSS
+
+Add custom styles while maintaining theme consistency:
+
+```python
+UNFOLD = {
+    "STYLES": [
+        lambda request: "/static/admin/custom.css",
+    ],
+}
+```
+
+```css
+/* static/admin/custom.css */
+
+/* Use Unfold's CSS variables */
+.custom-card {
+  background-color: rgb(var(--color-base-50));
+  border: 1px solid rgb(var(--color-base-200));
+  color: rgb(var(--color-font-default-light));
+}
+
+/* Dark mode */
+:root[class~="dark"] .custom-card {
+  background-color: rgb(var(--color-base-900));
+  border-color: rgb(var(--color-base-700));
+  color: rgb(var(--color-font-default-dark));
+}
+
+/* Or use Tailwind classes */
+.custom-element {
+  @apply bg-base-50 border border-base-200 text-font-default-light;
+  @apply dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark;
+}
+```
+
+<Warning>
+When adding custom CSS, always consider dark mode. Use Unfold's color variables or Tailwind's dark mode utilities.
+</Warning>
+
+## Accessing Colors in Templates
+
+Use color variables in custom templates:
+
+```html
+{# Custom template #}
+<div class="bg-primary-600 text-white p-4 rounded">
+  Primary colored box
+</div>
+
+<div class="bg-base-100 dark:bg-base-800 p-4">
+  Automatically themed background
+</div>
+
+{# Using CSS variables directly #}
+<style>
+  .custom {
+    background: rgb(var(--color-primary-600));
+    color: rgb(var(--color-font-important-light));
+  }
+  
+  :root[class~="dark"] .custom {
+    color: rgb(var(--color-font-important-dark));
+  }
+</style>
+```
+
+## Tailwind Utility Classes
+
+Unfold includes Tailwind classes for all theme colors:
+
+<Tabs>
+  <Tab title="Background">
+    ```html
+    <div class="bg-primary-600">Primary background</div>
+    <div class="bg-base-100 dark:bg-base-800">Themed background</div>
+    ```
+  </Tab>
+  
+  <Tab title="Text">
+    ```html
+    <p class="text-primary-600">Primary text</p>
+    <p class="text-font-default-light dark:text-font-default-dark">Body text</p>
+    <h1 class="text-font-important-light dark:text-font-important-dark">Heading</h1>
+    ```
+  </Tab>
+  
+  <Tab title="Border">
+    ```html
+    <div class="border border-base-200 dark:border-base-700">Bordered</div>
+    <div class="border-primary-600">Primary border</div>
+    ```
+  </Tab>
+  
+  <Tab title="Ring/Outline">
+    ```html
+    <button class="ring-2 ring-primary-600">Button</button>
+    <input class="focus:outline-primary-600" />
+    ```
+  </Tab>
+</Tabs>
+
+## Widget Styling
+
+Customize form widget appearance:
+
+```python
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+class MyForm(forms.ModelForm):
+    class Meta:
+        widgets = {
+            'name': UnfoldAdminTextInputWidget(attrs={
+                'class': 'custom-class',
+                'prefix_icon': 'person',  # Material icon
+            })
+        }
+```
+
+### Custom Widget Classes
+
+Override default widget classes:
+
+```python
+UNFOLD = {
+    "FORMS": {
+        "classes": {
+            "text_input": "border border-primary-600 rounded px-3 py-2",
+            "button": "bg-primary-600 text-white px-4 py-2 rounded",
+        }
+    }
+}
+```
+
+<Warning>
+Overriding form classes affects all widgets. Only do this if you need comprehensive styling changes.
+</Warning>
+
+## Complete Theming Example
+
+```python
+# settings.py
+UNFOLD = {
+    # Brand colors
+    "COLORS": {
+        "primary": {
+            "50": "oklch(97% 0.01 210)",
+            "100": "oklch(94% 0.03 210)",
+            "200": "oklch(88% 0.06 210)",
+            "300": "oklch(80% 0.12 210)",
+            "400": "oklch(70% 0.18 210)",
+            "500": "oklch(60% 0.22 210)",  # Teal brand color
+            "600": "oklch(55% 0.22 210)",
+            "700": "oklch(45% 0.20 210)",
+            "800": "oklch(35% 0.16 210)",
+            "900": "oklch(30% 0.14 210)",
+            "950": "oklch(20% 0.10 210)",
+        },
+    },
+    
+    # Themed logos
+    "SITE_LOGO": {
+        "light": "/static/logo-dark.svg",
+        "dark": "/static/logo-light.svg",
+    },
+    
+    # Custom styles
+    "STYLES": [
+        lambda request: "/static/admin/custom-theme.css",
+    ],
+}
+```
+
+```css
+/* static/admin/custom-theme.css */
+
+/* Custom header styling */
+.header {
+  @apply bg-gradient-to-r from-primary-600 to-primary-700;
+}
+
+/* Custom card styling */
+.admin-card {
+  @apply bg-base-50 dark:bg-base-900;
+  @apply border border-base-200 dark:border-base-700;
+  @apply shadow-lg rounded-lg p-6;
+}
+
+/* Custom button variant */
+.btn-accent {
+  @apply bg-primary-500 hover:bg-primary-600;
+  @apply text-white font-semibold;
+  @apply px-4 py-2 rounded-md;
+  @apply transition-colors duration-200;
+}
+```
+
+<Check>
+This creates a fully themed admin interface with custom colors, logos, and styles that work in both light and dark modes.
+</Check>
+
+## Color Tools
+
+Useful tools for working with OKLCH colors:
+
+<CardGroup cols={2}>
+  <Card title="OKLCH Color Picker" icon="palette" href="https://oklch.com">
+    Interactive tool to create and visualize OKLCH colors
+  </Card>
+  
+  <Card title="Tailwind OKLCH" icon="swatchbook" href="https://tailwindcss.com/docs/customizing-colors#using-oklch">
+    Official Tailwind documentation on OKLCH
+  </Card>
+  
+  <Card title="Color Converter" icon="arrows-rotate" href="https://colorjs.io/apps/convert/">
+    Convert between color spaces (hex, RGB, OKLCH)
+  </Card>
+  
+  <Card title="Palette Generator" icon="wand-magic-sparkles" href="https://www.tints.dev">
+    Generate color palettes with consistent lightness
+  </Card>
+</CardGroup>

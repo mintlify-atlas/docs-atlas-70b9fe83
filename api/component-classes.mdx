@@ -1,0 +1,338 @@
+---
+title: Component Classes
+description: Complete API reference for Unfold component system
+---
+
+## Overview
+
+The Unfold component system provides a registry-based approach to creating reusable, context-aware components in the admin interface.
+
+## Core Classes
+
+### BaseComponent
+
+```python
+from unfold.components import BaseComponent
+
+class BaseComponent:
+    def __init__(self, request: HttpRequest):
+        self.request = request
+    
+    def get_context_data(self, **kwargs):
+        return kwargs
+```
+
+Located in `unfold/components.py:42`
+
+Base class for all Unfold components. Provides request context and context data handling.
+
+#### Constructor
+
+```python
+def __init__(self, request: HttpRequest)
+```
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object providing access to user, session, and request data.
+</ParamField>
+
+#### Methods
+
+##### get_context_data
+
+```python
+def get_context_data(self, **kwargs)
+```
+
+Returns context data for rendering the component.
+
+<ParamField path="kwargs" type="dict">
+  Additional context variables to include.
+</ParamField>
+
+**Returns:** Dictionary of context variables.
+
+#### Usage Example
+
+```python
+from unfold.components import BaseComponent, register_component
+from django.http import HttpRequest
+
+@register_component
+class DashboardStatsComponent(BaseComponent):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            "total_users": User.objects.count(),
+            "total_articles": Article.objects.count(),
+            "user_name": self.request.user.get_full_name(),
+        })
+        return context
+```
+
+### ComponentRegistry
+
+```python
+from unfold.components import ComponentRegistry
+
+class ComponentRegistry:
+    _registry: dict[str, type] = {}
+```
+
+Located in `unfold/components.py:6`
+
+Registry for managing component classes. Provides class registration, retrieval, and instantiation.
+
+#### Class Methods
+
+##### register_class
+
+```python
+@classmethod
+def register_class(cls, component_cls: type) -> None
+```
+
+Registers a component class in the registry.
+
+<ParamField path="component_cls" type="type" required>
+  The component class to register. Must inherit from `BaseComponent`.
+</ParamField>
+
+**Raises:**
+- `ValueError` if the class doesn't inherit from `BaseComponent`
+- `ValueError` if the class name is already registered
+
+##### get_class
+
+```python
+@classmethod
+def get_class(cls, class_name: str) -> type | None
+```
+
+Retrieves a registered component class by name.
+
+<ParamField path="class_name" type="str" required>
+  The name of the component class to retrieve.
+</ParamField>
+
+**Returns:** The component class, or `None` if not found.
+
+##### create_instance
+
+```python
+@classmethod
+def create_instance(cls, class_name: str, **kwargs: Any) -> Any
+```
+
+Creates an instance of a registered component class.
+
+<ParamField path="class_name" type="str" required>
+  The name of the component class to instantiate.
+</ParamField>
+
+<ParamField path="kwargs" type="dict">
+  Arguments to pass to the component constructor.
+</ParamField>
+
+**Returns:** An instance of the component.
+
+**Raises:**
+- `ValueError` if the class is not registered
+
+## Decorator
+
+### register_component
+
+```python
+from unfold.components import register_component
+
+def register_component(cls: type) -> type
+```
+
+Located in `unfold/components.py:37`
+
+Decorator to register a component class with the ComponentRegistry.
+
+<ParamField path="cls" type="type" required>
+  The component class to register.
+</ParamField>
+
+**Returns:** The registered component class (allows chaining).
+
+#### Usage Example
+
+```python
+from unfold.components import BaseComponent, register_component
+
+@register_component
+class MyCustomComponent(BaseComponent):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["custom_data"] = "Hello from component!"
+        return context
+```
+
+## Complete Usage Example
+
+### Creating a Custom Component
+
+```python
+# myapp/components.py
+from unfold.components import BaseComponent, register_component
+from django.db.models import Count
+from myapp.models import Article, User
+
+@register_component
+class DashboardMetricsComponent(BaseComponent):
+    """Component displaying key metrics on the dashboard."""
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Access the current user via self.request
+        user = self.request.user
+        
+        # Gather metrics
+        context.update({
+            "total_articles": Article.objects.count(),
+            "published_articles": Article.objects.filter(
+                status="published"
+            ).count(),
+            "user_articles": Article.objects.filter(
+                author=user
+            ).count() if user.is_authenticated else 0,
+            "total_users": User.objects.count(),
+            "active_users": User.objects.filter(
+                is_active=True
+            ).count(),
+        })
+        
+        return context
+```
+
+### Using the Component
+
+```python
+# myapp/admin.py
+from django.contrib import admin
+from unfold.components import ComponentRegistry
+
+def dashboard_callback(request, context):
+    # Create an instance of your component
+    metrics_component = ComponentRegistry.create_instance(
+        "DashboardMetricsComponent",
+        request=request
+    )
+    
+    # Get context data from the component
+    metrics_data = metrics_component.get_context_data()
+    
+    # Add to context
+    context["metrics"] = metrics_data
+    
+    return context
+
+# In settings.py
+UNFOLD = {
+    "DASHBOARD_CALLBACK": "myapp.admin.dashboard_callback",
+}
+```
+
+### Advanced Component with Caching
+
+```python
+from unfold.components import BaseComponent, register_component
+from django.core.cache import cache
+from django.db.models import Count, Q
+from datetime import datetime, timedelta
+
+@register_component
+class AnalyticsComponent(BaseComponent):
+    """Component with cached analytics data."""
+    
+    CACHE_KEY = "analytics_component_data"
+    CACHE_TIMEOUT = 300  # 5 minutes
+    
+    def get_analytics_data(self):
+        """Calculate analytics data."""
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        
+        return {
+            "weekly_articles": Article.objects.filter(
+                created_at__gte=week_ago
+            ).count(),
+            "weekly_registrations": User.objects.filter(
+                date_joined__gte=week_ago
+            ).count(),
+            "top_authors": User.objects.annotate(
+                article_count=Count("articles")
+            ).order_by("-article_count")[:5],
+        }
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Try to get cached data
+        analytics = cache.get(self.CACHE_KEY)
+        
+        if analytics is None:
+            # Calculate and cache
+            analytics = self.get_analytics_data()
+            cache.set(self.CACHE_KEY, analytics, self.CACHE_TIMEOUT)
+        
+        context["analytics"] = analytics
+        context["is_staff"] = self.request.user.is_staff
+        
+        return context
+```
+
+### Component with Permission Checks
+
+```python
+from unfold.components import BaseComponent, register_component
+from django.core.exceptions import PermissionDenied
+
+@register_component
+class AdminOnlyComponent(BaseComponent):
+    """Component only visible to admin users."""
+    
+    required_permission = "myapp.view_sensitive_data"
+    
+    def __init__(self, request):
+        super().__init__(request)
+        
+        # Check permissions on initialization
+        if not self.has_permission():
+            raise PermissionDenied("You don't have access to this component.")
+    
+    def has_permission(self):
+        """Check if user has required permissions."""
+        return (
+            self.request.user.is_authenticated and
+            self.request.user.has_perm(self.required_permission)
+        )
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["sensitive_data"] = self.get_sensitive_data()
+        return context
+    
+    def get_sensitive_data(self):
+        # Sensitive data logic here
+        return {"secret": "value"}
+```
+
+## Best Practices
+
+1. **Always inherit from BaseComponent**: This ensures your component has access to the request object and follows Unfold's conventions.
+
+2. **Use the @register_component decorator**: This automatically registers your component with the ComponentRegistry.
+
+3. **Keep components focused**: Each component should handle a specific piece of functionality.
+
+4. **Use caching for expensive operations**: If your component performs database queries or calculations, consider caching the results.
+
+5. **Handle permissions**: Check user permissions within the component if it displays sensitive data.
+
+6. **Document your components**: Add docstrings explaining what the component does and what context data it provides.

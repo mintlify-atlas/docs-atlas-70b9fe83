@@ -1,0 +1,358 @@
+---
+title: "Paginated Inlines"
+description: "Add pagination to inline formsets for better performance with large datasets"
+---
+
+Paginated inlines allow you to split large sets of related objects across multiple pages, improving performance and user experience when dealing with models that have many related objects.
+
+## Overview
+
+When a model has hundreds or thousands of related objects, displaying all of them at once can slow down page load times and overwhelm users. Pagination solves this by displaying a manageable subset of objects per page.
+
+<Frame>
+  <img src="/images/paginated-inline-example.png" alt="Paginated inline with navigation" />
+</Frame>
+
+## Basic Setup
+
+Enable pagination by setting the `per_page` attribute on your inline class:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
+from .models import Author, Book
+
+class BookInline(TabularInline):
+    model = Book
+    extra = 0
+    per_page = 10  # Show 10 books per page
+    fields = ['title', 'isbn', 'published_date']
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+<Info>
+  Setting `per_page` automatically enables pagination for the inline. The system uses Django's built-in `Paginator` class.
+</Info>
+
+## How It Works
+
+Unfold's pagination system:
+
+1. Uses `PaginationInlineFormSet` or `PaginationGenericInlineFormSet` (set automatically)
+2. Creates a paginator for the inline's queryset
+3. Displays only the current page's objects
+4. Adds pagination controls below the inline
+
+```python admin.py
+from unfold.admin import TabularInline
+
+class ReviewInline(TabularInline):
+    model = Review
+    extra = 0
+    per_page = 25  # 25 reviews per page
+    # formset is automatically set to PaginationInlineFormSet
+```
+
+## Custom Formset
+
+The formset is automatically set to handle pagination, but you can customize it if needed:
+
+```python admin.py
+from unfold.forms import PaginationInlineFormSet
+from unfold.admin import TabularInline
+
+class CustomPaginatedFormSet(PaginationInlineFormSet):
+    def get_queryset(self):
+        """Customize the queryset for pagination"""
+        qs = super().get_queryset()
+        return qs.select_related('category').prefetch_related('tags')
+
+class ProductInline(TabularInline):
+    model = Product
+    formset = CustomPaginatedFormSet
+    per_page = 20
+    fields = ['name', 'category', 'price']
+```
+
+<Warning>
+  If you provide a custom formset, make sure it inherits from `PaginationInlineFormSet` or `PaginationGenericInlineFormSet` to maintain pagination functionality.
+</Warning>
+
+## Generic Inline Pagination
+
+Pagination works with generic inlines as well:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+from django.contrib.contenttypes.admin import GenericTabularInline
+from .models import Comment
+
+class CommentInline(GenericTabularInline):
+    model = Comment
+    extra = 0
+    per_page = 15  # Paginate generic inline
+    fields = ['user', 'text', 'created_at']
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    inlines = [CommentInline]
+```
+
+<Info>
+  Generic inlines automatically use `PaginationGenericInlineFormSet` when `per_page` is set.
+</Info>
+
+## Page Navigation
+
+The pagination controls allow users to:
+
+- Navigate to the next/previous page
+- Jump to a specific page number
+- See the total number of pages
+
+Page numbers are tracked using query parameters:
+
+```
+# First page (default)
+/admin/app/model/123/change/
+
+# Second page
+/admin/app/model/123/change/?modelname-page=2
+
+# Page parameter format: {prefix}-page
+```
+
+## Combining with Tabs
+
+Paginated inlines work seamlessly with inline tabs:
+
+```python admin.py
+class PublishedBookInline(TabularInline):
+    model = Book
+    extra = 0
+    tab = True  # Display in tab
+    per_page = 10  # Paginate
+    fields = ['title', 'isbn', 'published_date']
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(published=True)
+
+class DraftBookInline(TabularInline):
+    model = Book
+    extra = 0
+    tab = True
+    per_page = 10
+    fields = ['title', 'isbn', 'status']
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(published=False)
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [PublishedBookInline, DraftBookInline]
+```
+
+<Check>
+  Each tabbed inline maintains its own pagination state independently. Learn more in [Inline Tabs](/inlines/inline-tabs).
+</Check>
+
+## Performance Optimization
+
+Optimize paginated inlines for better performance:
+
+```python admin.py
+class OrderItemInline(TabularInline):
+    model = OrderItem
+    extra = 0
+    per_page = 20
+    fields = ['product', 'quantity', 'price', 'total']
+    
+    def get_queryset(self, request):
+        """Optimize queryset with select_related and prefetch_related"""
+        qs = super().get_queryset(request)
+        return qs.select_related(
+            'product',
+            'product__category'
+        ).prefetch_related(
+            'product__images'
+        )
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Optimize foreign key choices"""
+        if db_field.name == 'product':
+            kwargs['queryset'] = Product.objects.select_related('category')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+@admin.register(Order)
+class OrderAdmin(ModelAdmin):
+    inlines = [OrderItemInline]
+```
+
+<Tip>
+  Use `select_related()` and `prefetch_related()` to reduce database queries when working with paginated inlines.
+</Tip>
+
+## Dynamic Per-Page Values
+
+Set the per-page value dynamically based on user preferences or other criteria:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 0
+    fields = ['title', 'isbn', 'published_date']
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        # Set per_page dynamically
+        self.per_page = request.user.profile.inline_page_size or 10
+        return super().get_formset(request, obj, **kwargs)
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+## Pagination with Sortable Inlines
+
+You can combine pagination with sortable functionality, though sorting is limited to the current page:
+
+```python admin.py
+class ImageInline(TabularInline):
+    model = Image
+    extra = 0
+    per_page = 12  # Show 12 images per page
+    ordering_field = 'order'  # Enable sorting
+    hide_ordering_field = True
+    fields = ['title', 'file', 'caption']
+
+@admin.register(Gallery)
+class GalleryAdmin(ModelAdmin):
+    inlines = [ImageInline]
+```
+
+<Warning>
+  When using both pagination and sorting, users can only reorder items within the current page. Items cannot be dragged across page boundaries.
+</Warning>
+
+<Check>
+  Learn more about sortable inlines in [Sortable Inlines](/inlines/sortable).
+</Check>
+
+## Handling Forms on Paginated Inlines
+
+When a form has errors, the page containing the error is automatically displayed:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 0
+    per_page = 10
+    fields = ['title', 'isbn', 'published_date']
+    
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        formfield = super().formfield_for_dbfield(db_field, request, **kwargs)
+        
+        if db_field.name == 'title':
+            formfield.required = True
+        
+        return formfield
+```
+
+<Info>
+  The pagination system preserves the current page in POST requests, ensuring users stay on the same page after saving.
+</Info>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Choose appropriate page sizes" icon="list-ol">
+    Select a `per_page` value based on your use case:
+    
+    - **Small forms** (few fields): 15-25 items per page
+    - **Large forms** (many fields): 5-10 items per page
+    - **Simple lists**: 25-50 items per page
+    
+    ```python
+    class SimpleInline(TabularInline):
+        per_page = 25  # More items for simple data
+    
+    class ComplexInline(StackedInline):
+        per_page = 5   # Fewer items for complex forms
+    ```
+  </Accordion>
+  
+  <Accordion title="Set extra=0 for paginated inlines" icon="plus">
+    When using pagination, set `extra=0` to avoid empty forms:
+    
+    ```python
+    class BookInline(TabularInline):
+        model = Book
+        extra = 0  # Don't show empty forms with pagination
+        per_page = 10
+    ```
+    
+    Users can add new items via the "Add another" button.
+  </Accordion>
+  
+  <Accordion title="Optimize queries" icon="bolt">
+    Always optimize your querysets for paginated inlines:
+    
+    ```python
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('foreign_key').prefetch_related('many_to_many')
+    ```
+  </Accordion>
+  
+  <Accordion title="Consider readonly fields" icon="eye">
+    For view-heavy use cases, make most fields readonly:
+    
+    ```python
+    class HistoryInline(TabularInline):
+        model = OrderHistory
+        extra = 0
+        per_page = 20
+        can_delete = False
+        
+        def get_readonly_fields(self, request, obj=None):
+            return [f.name for f in self.model._meta.fields]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+<ParamField path="per_page" type="int">
+  Number of inline objects to display per page. When set, automatically enables pagination using `PaginationInlineFormSet`.
+</ParamField>
+
+The pagination system uses:
+
+- `unfold.forms.PaginationFormSetMixin` - Base mixin for pagination logic
+- `unfold.forms.PaginationInlineFormSet` - Formset for regular inlines
+- `unfold.forms.PaginationGenericInlineFormSet` - Formset for generic inlines
+
+Page tracking methods:
+- `get_pagination_key()` - Returns the query parameter name (`{prefix}-page`)
+- `get_page_num()` - Extracts the current page number from request
+- `get_page()` - Returns the Page object for the current page
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inlines Overview" icon="layer-group" href="/inlines/overview">
+    Learn about inline basics
+  </Card>
+  <Card title="Sortable Inlines" icon="arrow-down-arrow-up" href="/inlines/sortable">
+    Add drag-and-drop ordering
+  </Card>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize inlines with tabs
+  </Card>
+  <Card title="Nonrelated Inlines" icon="link-slash" href="/inlines/nonrelated">
+    Work with non-related objects
+  </Card>
+</CardGroup>

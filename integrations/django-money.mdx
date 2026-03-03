@@ -1,0 +1,543 @@
+---
+title: Django Money
+description: Handle monetary values in Django Unfold with django-money for proper currency support, formatting, and financial calculations
+---
+
+## Overview
+
+Django Money provides comprehensive support for monetary values in Django applications. Unfold automatically detects and styles MoneyField widgets with the custom `UnfoldAdminMoneyWidget`, ensuring seamless integration with your admin interface.
+
+<Info>
+  Django Money handles currency conversion, formatting, and arithmetic operations while preventing common monetary calculation errors that occur with plain decimal fields.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-money">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-money
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add djmoney to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "django.contrib.admin",
+        # ...
+        
+        "djmoney",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Apply django-money migrations:
+    
+    ```bash
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  No additional Unfold contrib app is needed. Unfold automatically styles django-money widgets.
+</Note>
+
+## Basic Usage
+
+### Model with MoneyField
+
+```python models.py
+from django.db import models
+from djmoney.models.fields import MoneyField
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    price = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD",
+    )
+    cost = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD",
+        null=True,
+        blank=True,
+    )
+    
+    def __str__(self):
+        return f"{self.name} - {self.price}"
+```
+
+### Admin Configuration
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .models import Product
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "cost"]
+    search_fields = ["name"]
+    list_filter = ["price_currency"]
+```
+
+Unfold automatically applies the `UnfoldAdminMoneyWidget` to MoneyField fields, providing:
+- Styled currency amount input
+- Currency selection dropdown
+- Consistent design with Unfold theme
+- Support for light and dark modes
+
+## Field Options
+
+### Default Currency
+
+```python models.py
+class Product(models.Model):
+    price = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="EUR",  # Default to Euros
+    )
+```
+
+### Currency Choices
+
+Limit available currencies:
+
+```python models.py
+from djmoney.models.fields import MoneyField
+
+class Product(models.Model):
+    price = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD",
+        currency_choices=[("USD", "US Dollar"), ("EUR", "Euro"), ("GBP", "British Pound")],
+    )
+```
+
+### Nullable Money Fields
+
+```python models.py
+class Product(models.Model):
+    discount_price = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD",
+        null=True,
+        blank=True,
+    )
+```
+
+## Working with Money Objects
+
+### Creating Money Values
+
+```python
+from djmoney.money import Money
+from myapp.models import Product
+
+# Create product with price
+product = Product.objects.create(
+    name="Laptop",
+    price=Money(999.99, "USD")
+)
+
+# Access money field
+print(product.price)           # $999.99
+print(product.price.amount)    # Decimal('999.99')
+print(product.price.currency)  # USD
+```
+
+### Money Arithmetic
+
+```python
+from djmoney.money import Money
+
+price = Money(100, "USD")
+tax = Money(15, "USD")
+
+# Addition
+total = price + tax  # Money(115, 'USD')
+
+# Subtraction
+discount = Money(20, "USD")
+final_price = total - discount  # Money(95, 'USD')
+
+# Multiplication
+double_price = price * 2  # Money(200, 'USD')
+
+# Division
+half_price = price / 2  # Money(50, 'USD')
+```
+
+<Warning>
+  Arithmetic operations between Money objects of different currencies will raise an exception. Convert currencies first.
+</Warning>
+
+### Currency Comparison
+
+```python
+price_usd = Money(100, "USD")
+price_eur = Money(100, "EUR")
+
+# Same currency comparison works
+Money(100, "USD") > Money(50, "USD")  # True
+
+# Different currency comparison raises error
+price_usd > price_eur  # Raises error
+```
+
+## Querying Money Fields
+
+### Filter by Amount
+
+```python
+# Products under $100
+Product.objects.filter(price__lt=Money(100, "USD"))
+
+# Or filter by amount field directly
+Product.objects.filter(price__amount__lt=100)
+
+# Products between $50 and $200
+Product.objects.filter(
+    price__gte=Money(50, "USD"),
+    price__lte=Money(200, "USD")
+)
+```
+
+### Filter by Currency
+
+```python
+# All products priced in USD
+Product.objects.filter(price_currency="USD")
+
+# Products not in EUR
+Product.objects.exclude(price_currency="EUR")
+
+# Multiple currencies
+Product.objects.filter(price_currency__in=["USD", "EUR", "GBP"])
+```
+
+### Aggregation
+
+```python
+from django.db.models import Sum, Avg, Max, Min
+
+# Total value of all products (same currency)
+total = Product.objects.filter(
+    price_currency="USD"
+).aggregate(total=Sum("price"))  # {'total': Money(5000, 'USD')}
+
+# Average price
+average = Product.objects.filter(
+    price_currency="USD"
+).aggregate(avg_price=Avg("price__amount"))
+
+# Min and max
+price_range = Product.objects.aggregate(
+    min_price=Min("price__amount"),
+    max_price=Max("price__amount")
+)
+```
+
+## Currency Conversion
+
+Django Money supports currency conversion with exchange rates:
+
+### Install Exchange Backend
+
+```bash
+pip install django-money[exchange]
+```
+
+### Configure Exchange Rates
+
+```python settings.py
+INSTALLED_APPS = [
+    # ...
+    "djmoney.contrib.exchange",
+]
+
+# Exchange rate backend
+EXCHANGE_BACKEND = "djmoney.contrib.exchange.backends.OpenExchangeRatesBackend"
+OPEN_EXCHANGE_RATES_APP_ID = "your-app-id"
+```
+
+### Update Exchange Rates
+
+```bash
+python manage.py update_rates
+```
+
+### Convert Currency
+
+```python
+from djmoney.money import Money
+from djmoney.contrib.exchange.models import convert_money
+
+price_usd = Money(100, "USD")
+price_eur = convert_money(price_usd, "EUR")
+print(price_eur)  # €85.50 (example rate)
+```
+
+## Admin Customization
+
+### Custom Money Widget
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminMoneyWidget
+from django import forms
+from .models import Product
+
+class ProductAdminForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = "__all__"
+        widgets = {
+            "price": UnfoldAdminMoneyWidget(),
+            "cost": UnfoldAdminMoneyWidget(),
+        }
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    form = ProductAdminForm
+```
+
+### Display in List
+
+Format money fields in list display:
+
+```python admin.py
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "formatted_price", "profit_margin"]
+    
+    def formatted_price(self, obj):
+        return obj.price
+    formatted_price.short_description = "Price"
+    
+    def profit_margin(self, obj):
+        if obj.cost:
+            margin = obj.price - obj.cost
+            percentage = (margin.amount / obj.cost.amount) * 100
+            return f"{margin} ({percentage:.1f}%)"
+        return "-"
+    profit_margin.short_description = "Profit Margin"
+```
+
+## Advanced Features
+
+### Multiple Currency Fields
+
+```python models.py
+class Invoice(models.Model):
+    subtotal = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD"
+    )
+    tax = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD"
+    )
+    shipping = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency="USD"
+    )
+    
+    @property
+    def total(self):
+        return self.subtotal + self.tax + self.shipping
+```
+
+### Model Methods
+
+```python models.py
+class Product(models.Model):
+    price = MoneyField(max_digits=10, decimal_places=2, default_currency="USD")
+    cost = MoneyField(max_digits=10, decimal_places=2, default_currency="USD")
+    
+    def profit(self):
+        """Calculate profit margin."""
+        return self.price - self.cost
+    
+    def apply_discount(self, percentage):
+        """Apply percentage discount."""
+        discount_amount = self.price * (percentage / 100)
+        return self.price - discount_amount
+    
+    def in_currency(self, target_currency):
+        """Convert price to different currency."""
+        from djmoney.contrib.exchange.models import convert_money
+        return convert_money(self.price, target_currency)
+```
+
+### Form Validation
+
+```python forms.py
+from django import forms
+from djmoney.money import Money
+from .models import Product
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ["name", "price", "cost"]
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        price = cleaned_data.get("price")
+        cost = cleaned_data.get("cost")
+        
+        if price and cost:
+            # Ensure cost is less than price
+            if cost >= price:
+                raise forms.ValidationError(
+                    "Cost must be less than selling price"
+                )
+            
+            # Ensure minimum profit margin
+            margin = ((price - cost) / cost) * 100
+            if margin < 10:
+                raise forms.ValidationError(
+                    "Profit margin must be at least 10%"
+                )
+        
+        return cleaned_data
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="E-commerce Pricing">
+    Manage product prices with multiple currencies:
+    
+    ```python models.py
+    class Product(models.Model):
+        name = models.CharField(max_length=200)
+        price = MoneyField(
+            max_digits=10,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        sale_price = MoneyField(
+            max_digits=10,
+            decimal_places=2,
+            null=True,
+            blank=True
+        )
+        
+        @property
+        def effective_price(self):
+            return self.sale_price or self.price
+    ```
+  </Accordion>
+  
+  <Accordion title="Financial Transactions">
+    Track money movements:
+    
+    ```python models.py
+    class Transaction(models.Model):
+        amount = MoneyField(
+            max_digits=12,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        fee = MoneyField(
+            max_digits=12,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        transaction_date = models.DateTimeField(auto_now_add=True)
+        
+        @property
+        def net_amount(self):
+            return self.amount - self.fee
+    ```
+  </Accordion>
+  
+  <Accordion title="Subscription Billing">
+    Handle subscription pricing:
+    
+    ```python models.py
+    class SubscriptionPlan(models.Model):
+        name = models.CharField(max_length=100)
+        monthly_price = MoneyField(
+            max_digits=8,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        annual_price = MoneyField(
+            max_digits=8,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        
+        @property
+        def annual_savings(self):
+            monthly_total = self.monthly_price * 12
+            return monthly_total - self.annual_price
+    ```
+  </Accordion>
+  
+  <Accordion title="Multi-currency Invoicing">
+    Create invoices in different currencies:
+    
+    ```python models.py
+    class Invoice(models.Model):
+        customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+        total = MoneyField(
+            max_digits=12,
+            decimal_places=2,
+            default_currency="USD"
+        )
+        currency = models.CharField(max_length=3, default="USD")
+        
+        def calculate_total(self):
+            items_total = sum(
+                item.amount for item in self.items.all()
+            )
+            return items_total
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Live Demo
+
+<Card 
+  title="View Money Field Integration" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/formula/driver/56/change/"
+>
+  See django-money fields styled with Unfold's custom widget
+</Card>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Django Money Docs" icon="book" href="https://django-money.readthedocs.io/">
+    Official documentation and API reference
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/django-money/django-money">
+    Source code and examples
+  </Card>
+</CardGroup>
+
+<Tip>
+  Always use Money objects for monetary calculations instead of plain decimals to avoid precision issues and maintain currency information.
+</Tip>

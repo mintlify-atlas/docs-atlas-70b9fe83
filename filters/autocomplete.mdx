@@ -1,0 +1,466 @@
+---
+title: 'Autocomplete Filters'
+description: 'AJAX-powered search filters for large datasets in Django admin'
+icon: 'magnifying-glass'
+---
+
+## Overview
+
+Autocomplete filters provide a search-enabled filtering interface that loads options dynamically via AJAX. This makes them perfect for filtering by fields with large datasets (hundreds or thousands of options) where standard dropdowns would be impractical.
+
+<Warning>
+Autocomplete filters require the related model to have an admin class registered with `search_fields` defined.
+</Warning>
+
+## Available Autocomplete Filters
+
+<CardGroup cols={2}>
+  <Card title="AutocompleteSelectFilter" icon="circle-dot">
+    Single selection with search for related fields
+  </Card>
+  
+  <Card title="AutocompleteSelectMultipleFilter" icon="list-check">
+    Multiple selection with search for related fields
+  </Card>
+</CardGroup>
+
+## AutocompleteSelectFilter
+
+Filter by a single related object with search capabilities.
+
+### Basic Setup
+
+<Steps>
+  <Step title="Configure the related model admin">
+    The related model must have `search_fields` defined:
+
+    ```python admin.py
+    from django.contrib import admin
+    from unfold.admin import ModelAdmin
+    from .models import Author
+
+    @admin.register(Author)
+    class AuthorAdmin(ModelAdmin):
+        search_fields = ["first_name", "last_name", "email"]
+    ```
+  </Step>
+
+  <Step title="Add autocomplete filter to your model">
+    ```python admin.py
+    from unfold.contrib.filters.admin import AutocompleteSelectFilter
+    from .models import Book
+
+    @admin.register(Book)
+    class BookAdmin(ModelAdmin):
+        list_filter = [
+            ("author", AutocompleteSelectFilter),
+        ]
+    ```
+  </Step>
+</Steps>
+
+### Complete Example
+
+```python models.py
+from django.db import models
+
+
+class Author(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
+
+class Book(models.Model):
+    title = models.CharField(max_length=200)
+    author = models.ForeignKey(Author, on_delete=models.CASCADE)
+    published_date = models.DateField()
+
+    def __str__(self):
+        return self.title
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
+
+from .models import Author, Book
+
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ["first_name", "last_name", "email"]
+    list_display = ["first_name", "last_name", "email"]
+
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    list_display = ["title", "author", "published_date"]
+    list_filter = [
+        ("author", AutocompleteSelectFilter),
+    ]
+```
+
+<Tip>
+Users can now type in the filter to search authors by first name, last name, or email.
+</Tip>
+
+## AutocompleteSelectMultipleFilter
+
+Filter by multiple related objects with search.
+
+```python models.py
+class Tag(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    tags = models.ManyToManyField(Tag)
+    published = models.BooleanField(default=False)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import AutocompleteSelectMultipleFilter
+
+
+@admin.register(Tag)
+class TagAdmin(ModelAdmin):
+    search_fields = ["name"]
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "published"]
+    list_filter = [
+        ("tags", AutocompleteSelectMultipleFilter),
+    ]
+```
+
+<Info>
+Users can select multiple tags to filter articles. The filter uses an AND logic by default (articles must have all selected tags).
+</Info>
+
+## Search Configuration
+
+### Case-Insensitive Search
+
+Use `__icontains` or `__istartswith` lookups:
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = [
+        "first_name__icontains",
+        "last_name__icontains",
+    ]
+```
+
+### Search Related Fields
+
+Search across relationships:
+
+```python admin.py
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    search_fields = [
+        "title",
+        "author__first_name",  # Search by author's first name
+        "author__last_name",    # Search by author's last name
+    ]
+    list_filter = [
+        ("author", AutocompleteSelectFilter),
+    ]
+```
+
+### Customize Search Terms
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ["first_name", "last_name", "email"]
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(
+            request, queryset, search_term
+        )
+        
+        # Add custom search logic
+        if search_term:
+            # Example: Search by full name
+            queryset |= self.model.objects.filter(
+                first_name__icontains=search_term.split()[0] if search_term else ""
+            )
+        
+        return queryset, use_distinct
+```
+
+## Advanced Configuration
+
+### Minimum Search Length
+
+You can configure minimum characters required before search triggers:
+
+```python admin.py
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
+
+
+class CustomAutocompleteFilter(AutocompleteSelectFilter):
+    # Customize form to set minimum input length
+    class Media:
+        js = ('admin/js/custom-autocomplete.js',)
+```
+
+### Custom Empty Label
+
+```python admin.py
+class CustomAutocompleteFilter(AutocompleteSelectFilter):
+    def choices(self, changelist):
+        for choice in super().choices(changelist):
+            # Customize the form
+            form = choice['form']
+            # Add custom empty label or placeholder
+            yield choice
+```
+
+### Limit Results
+
+Control the number of autocomplete results:
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ["first_name", "last_name"]
+    
+    def get_search_results(self, request, queryset, search_term):
+        queryset, use_distinct = super().get_search_results(
+            request, queryset, search_term
+        )
+        # Limit to 10 results
+        return queryset[:10], use_distinct
+```
+
+## Filtering ManyToManyField
+
+For many-to-many relationships:
+
+```python models.py
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    categories = models.ManyToManyField(Category)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import AutocompleteSelectMultipleFilter
+
+
+@admin.register(Category)
+class CategoryAdmin(ModelAdmin):
+    search_fields = ["name"]
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("categories", AutocompleteSelectMultipleFilter),
+    ]
+```
+
+## With Faceted Counts
+
+<Note>
+Autocomplete filters support faceted counts, but they only show after a selection is made (not during search).
+</Note>
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import AutocompleteSelectFilter
+
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    show_facets = admin.ShowFacets.ALWAYS
+    list_filter = [
+        ("author", AutocompleteSelectFilter),
+    ]
+```
+
+## Permissions
+
+### Restrict Autocomplete Access
+
+Control who can see autocomplete results:
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ["first_name", "last_name"]
+
+    def has_view_permission(self, request, obj=None):
+        # Only staff with view permission can search
+        return request.user.has_perm('myapp.view_author')
+```
+
+### Field-Level Permissions
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ["first_name", "last_name", "email"]
+
+    def get_search_fields(self, request):
+        # Hide email from search for non-superusers
+        if request.user.is_superuser:
+            return self.search_fields
+        return ["first_name", "last_name"]
+```
+
+## Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Database indexes">
+    Add indexes to fields used in `search_fields`:
+
+    ```python models.py
+    class Author(models.Model):
+        first_name = models.CharField(max_length=100, db_index=True)
+        last_name = models.CharField(max_length=100, db_index=True)
+        email = models.EmailField(unique=True)  # Already indexed
+    ```
+  </Accordion>
+
+  <Accordion title="Query optimization">
+    Use `select_related()` and `prefetch_related()`:
+
+    ```python admin.py
+    @admin.register(Book)
+    class BookAdmin(ModelAdmin):
+        list_filter = [("author", AutocompleteSelectFilter)]
+
+        def get_queryset(self, request):
+            return super().get_queryset(request).select_related('author')
+    ```
+  </Accordion>
+
+  <Accordion title="Pagination">
+    Django automatically paginates autocomplete results. Configure pagination:
+
+    ```python admin.py
+    @admin.register(Author)
+    class AuthorAdmin(ModelAdmin):
+        search_fields = ["first_name", "last_name"]
+        # Autocomplete results are paginated (default: 20 per page)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Autocomplete not working">
+    **Problem**: Filter shows but autocomplete doesn't trigger.
+
+    **Solution**: Ensure the related model admin has `search_fields` defined:
+    ```python admin.py
+    @admin.register(Author)
+    class AuthorAdmin(ModelAdmin):
+        search_fields = ["first_name", "last_name"]  # Required!
+    ```
+  </Accordion>
+
+  <Accordion title="No results showing">
+    **Problem**: Search returns no results even though data exists.
+
+    **Solution**: Check that:
+    1. `search_fields` contains the correct field names
+    2. Fields are searchable (CharField, TextField, etc.)
+    3. User has permission to view the related model
+    4. Database contains matching records
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    **Problem**: Users get permission errors when using autocomplete.
+
+    **Solution**: Ensure users have view permission for the related model:
+    ```python admin.py
+    @admin.register(Author)
+    class AuthorAdmin(ModelAdmin):
+        def has_view_permission(self, request, obj=None):
+            return request.user.has_perm('myapp.view_author')
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API Reference
+
+### AutocompleteSelectFilter
+
+<ParamField path="field" type="Field" required>
+  The model field to filter on (passed automatically in tuple format)
+</ParamField>
+
+<ParamField path="form_class" type="type" default="AutocompleteDropdownForm">
+  Form class used for rendering the autocomplete widget
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_field.html"'>
+  Template used to render the filter
+</ParamField>
+
+### Requirements
+
+<ResponseField name="Related model admin" type="requirement">
+  The related model must have:
+  - An admin class registered
+  - `search_fields` defined
+  - View permissions for the user
+</ResponseField>
+
+## Best Practices
+
+<Steps>
+  <Step title="Use for large datasets">
+    Autocomplete filters are ideal when you have >50 options. For fewer options, consider dropdown filters.
+  </Step>
+
+  <Step title="Optimize search fields">
+    - Index searchable fields in the database
+    - Use specific field lookups (`__istartswith` vs `__icontains`)
+    - Limit the number of fields in `search_fields`
+  </Step>
+
+  <Step title="Provide clear __str__ methods">
+    Ensure related models have descriptive `__str__` methods:
+    ```python
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.email})"
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dropdown Filters" icon="angle-down" href="/filters/dropdown">
+    Learn about standard dropdown filters for smaller datasets
+  </Card>
+  
+  <Card title="Text Filters" icon="input-text" href="/filters/text">
+    Explore free-text search filters
+  </Card>
+</CardGroup>

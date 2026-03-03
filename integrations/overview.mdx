@@ -1,0 +1,147 @@
+---
+title: Third-Party Integrations
+description: Extend Django Unfold with powerful third-party packages for enhanced functionality including permissions, data import/export, history tracking, and more
+---
+
+## Overview
+
+Django Unfold seamlessly integrates with popular Django packages to extend your admin interface capabilities. These integrations maintain Unfold's modern design while adding powerful features to your application.
+
+<CardGroup cols={2}>
+  <Card title="Django Guardian" icon="shield" href="/integrations/django-guardian">
+    Object-level permissions management
+  </Card>
+  
+  <Card title="Django Import Export" icon="file-export" href="/integrations/django-import-export">
+    Import and export data in multiple formats
+  </Card>
+  
+  <Card title="Django Simple History" icon="clock-rotate-left" href="/integrations/django-simple-history">
+    Track model changes and version history
+  </Card>
+  
+  <Card title="Django Constance" icon="sliders" href="/integrations/django-constance">
+    Dynamic settings management
+  </Card>
+  
+  <Card title="Django Celery Beat" icon="calendar-clock" href="/integrations/django-celery-beat">
+    Periodic task scheduling
+  </Card>
+  
+  <Card title="Django Modeltranslation" icon="language" href="/integrations/django-modeltranslation">
+    Multilingual content management
+  </Card>
+  
+  <Card title="Django Money" icon="dollar-sign" href="/integrations/django-money">
+    Monetary value handling
+  </Card>
+  
+  <Card title="Django Location Field" icon="map-pin" href="/integrations/django-location-field">
+    Geographic location widgets
+  </Card>
+  
+  <Card title="DjangoQL" icon="search" href="/integrations/djangoql">
+    Advanced search queries
+  </Card>
+  
+  <Card title="Django JSON Widget" icon="brackets-curly" href="/integrations/django-json-widget">
+    Enhanced JSON field editing
+  </Card>
+</CardGroup>
+
+## Integration Approach
+
+Unfold integrations follow a consistent pattern:
+
+<Steps>
+  <Step title="Install the package">
+    Install the third-party package using pip according to its official documentation.
+  </Step>
+  
+  <Step title="Add Unfold contrib app">
+    Add the corresponding `unfold.contrib.*` app to your `INSTALLED_APPS` setting, typically before the original package.
+  </Step>
+  
+  <Step title="Configure your admin">
+    Update your ModelAdmin classes to inherit from both Unfold's `ModelAdmin` and the package's admin class.
+  </Step>
+</Steps>
+
+<Note>
+  Some packages like Django Money and DjangoQL work out-of-the-box with Unfold without requiring additional configuration.
+</Note>
+
+## Installation Requirements
+
+Most integrations require adding their corresponding app to your `INSTALLED_APPS`:
+
+```python settings.py
+INSTALLED_APPS = [
+    "unfold",  # Unfold must come first
+    
+    # Unfold contrib apps (before their corresponding packages)
+    "unfold.contrib.guardian",
+    "unfold.contrib.import_export",
+    "unfold.contrib.simple_history",
+    "unfold.contrib.constance",
+    "unfold.contrib.location_field",
+    
+    # Django apps
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    
+    # Third-party packages
+    "guardian",
+    "import_export",
+    "simple_history",
+    "constance",
+    "location_field",
+    
+    # Your apps
+    "myapp",
+]
+```
+
+<Warning>
+  The order matters! Unfold contrib apps must be placed **before** their corresponding third-party packages to ensure proper template overriding.
+</Warning>
+
+## Feature Compatibility
+
+| Integration | Template Override | Custom Widgets | Admin Classes | Auto-Styling |
+|-------------|------------------|----------------|---------------|-------------|
+| Django Guardian | ✓ | - | - | ✓ |
+| Django Import Export | ✓ | ✓ | ✓ | ✓ |
+| Django Simple History | ✓ | - | - | ✓ |
+| Django Constance | - | ✓ | - | ✓ |
+| Django Celery Beat | - | ✓ | ✓ | Manual |
+| Django Modeltranslation | - | - | ✓ | ✓ |
+| Django Money | - | ✓ | - | ✓ |
+| Django Location Field | ✓ | ✓ | - | ✓ |
+| DjangoQL | - | - | - | ✓ |
+| Django JSON Widget | - | - | - | ✓ |
+
+## Live Demos
+
+Explore these integrations in action at our demo site:
+
+<Card title="View Live Demo" icon="arrow-up-right-from-square" href="https://demo.unfoldadmin.com">
+  See all integrations working together in a real Django admin interface
+</Card>
+
+## Getting Help
+
+If you encounter issues with any integration:
+
+1. Check the integration-specific documentation page
+2. Review the official package documentation
+3. Visit the [Django Unfold GitHub repository](https://github.com/unfoldadmin/django-unfold)
+4. Join the community discussions
+
+<Tip>
+  Most integration issues can be resolved by ensuring the correct `INSTALLED_APPS` order and proper admin class inheritance.
+</Tip>

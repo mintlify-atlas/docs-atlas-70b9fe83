@@ -1,0 +1,164 @@
+---
+title: "Inlines Overview"
+description: "Learn about Django Unfold's inline system for managing related models"
+---
+
+Django Unfold provides powerful inline classes that extend Django's built-in inline functionality with enhanced features like pagination, sorting, tabs, and custom styling.
+
+## Available Inline Classes
+
+Unfold provides four main inline classes that inherit from Django's base inline classes:
+
+<CardGroup cols={2}>
+  <Card title="TabularInline" icon="table" href="#tabular-inline">
+    Display related objects in a compact table format
+  </Card>
+  <Card title="StackedInline" icon="layer-group" href="#stacked-inline">
+    Display related objects in a detailed stacked format
+  </Card>
+  <Card title="GenericTabularInline" icon="table-cells" href="#generic-inlines">
+    Tabular inline for generic foreign keys
+  </Card>
+  <Card title="GenericStackedInline" icon="bars-staggered" href="#generic-inlines">
+    Stacked inline for generic foreign keys
+  </Card>
+</CardGroup>
+
+## Basic Usage
+
+Import the inline classes from `unfold.admin` and use them just like Django's built-in inlines:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline, StackedInline
+from .models import Author, Book
+
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    fields = ['title', 'isbn', 'published_date']
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+## Tabular Inline
+
+The `TabularInline` class displays related objects in a compact table format, ideal for models with fewer fields:
+
+```python admin.py
+from unfold.admin import TabularInline
+
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    fields = ['title', 'isbn', 'published_date', 'pages']
+    can_delete = True
+```
+
+## Stacked Inline
+
+The `StackedInline` class displays each related object with all its fields stacked vertically:
+
+```python admin.py
+from unfold.admin import StackedInline
+
+class BookInline(StackedInline):
+    model = Book
+    extra = 1
+    fieldsets = [
+        ('Book Information', {
+            'fields': ['title', 'isbn']
+        }),
+        ('Publishing Details', {
+            'fields': ['published_date', 'publisher', 'pages']
+        })
+    ]
+```
+
+## Generic Inlines
+
+For models using Django's contenttypes framework, use the generic inline classes:
+
+```python admin.py
+from django.contrib.contenttypes.admin import GenericTabularInline
+from unfold.admin import ModelAdmin
+from .models import Comment
+
+class CommentInline(GenericTabularInline):
+    model = Comment
+    extra = 1
+    fields = ['user', 'text', 'created_at']
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    inlines = [CommentInline]
+```
+
+## Key Features
+
+Unfold's inline classes include several powerful features:
+
+<CardGroup cols={2}>
+  <Card title="Pagination" icon="page" href="/inlines/paginated">
+    Paginate large sets of related objects
+  </Card>
+  <Card title="Sortable" icon="arrow-down-arrow-up" href="/inlines/sortable">
+    Drag-and-drop ordering for related objects
+  </Card>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize inlines into tabs
+  </Card>
+  <Card title="Nonrelated" icon="link-slash" href="/inlines/nonrelated">
+    Display objects without foreign key relationships
+  </Card>
+</CardGroup>
+
+## Common Configuration Options
+
+All Unfold inline classes support these common attributes:
+
+<ParamField path="formfield_overrides" type="dict">
+  Dictionary of field type to widget mappings. Unfold provides optimized widget overrides by default.
+</ParamField>
+
+<ParamField path="readonly_preprocess_fields" type="dict">
+  Dictionary of readonly field preprocessing functions.
+</ParamField>
+
+<ParamField path="ordering_field" type="str">
+  Field name to use for drag-and-drop ordering. See [Sortable Inlines](/inlines/sortable).
+</ParamField>
+
+<ParamField path="per_page" type="int">
+  Number of inline objects to display per page. Enables pagination when set. See [Paginated Inlines](/inlines/paginated).
+</ParamField>
+
+<ParamField path="hide_ordering_field" type="bool">
+  Hide the ordering field from the inline display when using sortable inlines.
+</ParamField>
+
+<ParamField path="collapsible" type="bool">
+  Make the inline collapsible to save space.
+</ParamField>
+
+## Next Steps
+
+Explore the advanced inline features:
+
+<CardGroup cols={3}>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize multiple inlines in tabs
+  </Card>
+  <Card title="Fieldset Tabs" icon="rectangle-vertical-history" href="/inlines/fieldset-tabs">
+    Create tabs within fieldsets
+  </Card>
+  <Card title="Model Tabs" icon="folders" href="/inlines/model-tabs">
+    Configure tabs at the model level
+  </Card>
+</CardGroup>
+
+<Note>
+  All Unfold inline classes automatically use the `PaginationInlineFormSet` or `PaginationGenericInlineFormSet` for enhanced pagination support.
+</Note>

@@ -1,0 +1,438 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when using Django Unfold
+icon: screwdriver-wrench
+---
+
+This guide covers common issues you may encounter while using Django Unfold and their solutions.
+
+## Installation Issues
+
+### Unfold Not Appearing
+
+<Warning>
+Ensure `"unfold"` is placed **before** `"django.contrib.admin"` in your `INSTALLED_APPS`.
+</Warning>
+
+**Problem**: After installing Unfold, the admin interface still shows the default Django admin.
+
+**Solution**:
+
+1. Check your `settings.py`:
+   ```python
+   INSTALLED_APPS = [
+       "unfold",  # Must be first!
+       "django.contrib.admin",
+       # ... other apps
+   ]
+   ```
+
+2. Collect static files:
+   ```bash
+   python manage.py collectstatic --noinput
+   ```
+
+3. Clear browser cache and hard refresh (Ctrl+Shift+R or Cmd+Shift+R)
+
+### Static Files Not Loading
+
+**Problem**: Unfold interface appears broken with missing styles or icons.
+
+**Solution**:
+
+<Steps>
+  <Step title="Collect static files">
+    ```bash
+    python manage.py collectstatic --noinput --clear
+    ```
+  </Step>
+  <Step title="Verify STATIC_URL and STATIC_ROOT">
+    ```python
+    # settings.py
+    STATIC_URL = '/static/'
+    STATIC_ROOT = BASE_DIR / 'staticfiles'
+    ```
+  </Step>
+  <Step title="Check web server configuration">
+    Ensure your web server (nginx, Apache, etc.) is correctly serving static files from `STATIC_ROOT`.
+  </Step>
+</Steps>
+
+## Template and Rendering Issues
+
+### Custom Templates Not Working
+
+**Problem**: Custom template overrides are not being applied.
+
+**Solution**:
+
+<Note>
+Unfold uses its own template structure. Ensure you're overriding the correct templates from the `unfold/templates/` directory.
+</Note>
+
+1. Check template directory structure:
+   ```
+   your_project/
+   ├── templates/
+   │   └── admin/
+   │       └── unfold/
+   │           └── your_custom_template.html
+   ```
+
+2. Verify `TEMPLATES` setting:
+   ```python
+   TEMPLATES = [
+       {
+           'BACKEND': 'django.template.backends.django.DjangoTemplates',
+           'DIRS': [BASE_DIR / 'templates'],  # Include your templates directory
+           'APP_DIRS': True,
+           # ...
+       },
+   ]
+   ```
+
+### Sidebar Not Showing
+
+**Problem**: Sidebar navigation is not visible.
+
+**Solution**: Configure sidebar in `UNFOLD` settings:
+
+```python
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,
+        "navigation": [
+            {
+                "title": "Navigation",
+                "items": [
+                    {
+                        "title": "Dashboard",
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+## Form and Widget Issues
+
+### Select2/Autocomplete Not Working
+
+**Problem**: Autocomplete fields or Select2 dropdowns are not functioning.
+
+**Solutions**:
+
+<Accordion title="Check jQuery version conflicts">
+  Unfold includes jQuery. If your project loads a different jQuery version, conflicts may occur.
+  
+  **Fix**: Ensure only one jQuery version is loaded, preferably Unfold's version.
+</Accordion>
+
+<Accordion title="Verify field configuration">
+  For autocomplete fields:
+  ```python
+  from unfold.admin import ModelAdmin
+  from unfold.forms import UnfoldAdminSelectWidget
+  
+  class MyModelAdmin(ModelAdmin):
+      autocomplete_fields = ['related_field']
+  ```
+</Accordion>
+
+<Accordion title="Check browser console for errors">
+  Open browser DevTools (F12) and check the Console tab for JavaScript errors.
+</Accordion>
+
+### File Upload Widget Not Displaying
+
+**Problem**: File or image upload widgets are not visible or styled incorrectly.
+
+**Solution**:
+
+```python
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminFileWidget, UnfoldAdminImageWidget
+
+class MyModelAdmin(ModelAdmin):
+    formfield_overrides = {
+        models.FileField: {'widget': UnfoldAdminFileWidget},
+        models.ImageField: {'widget': UnfoldAdminImageWidget},
+    }
+```
+
+### ArrayField Widget Issues (PostgreSQL)
+
+**Problem**: ArrayField is not rendering correctly.
+
+**Solution**: Use Unfold's ArrayWidget:
+
+```python
+from django.contrib.postgres.fields import ArrayField
+from unfold.widgets import UnfoldAdminArrayWidget
+
+class MyModelAdmin(ModelAdmin):
+    formfield_overrides = {
+        ArrayField: {"widget": UnfoldAdminArrayWidget},
+    }
+```
+
+## Inline and Fieldset Issues
+
+### Inlines Not Showing Tabs
+
+**Problem**: Inline tabs are not displaying as expected.
+
+**Solution**: Configure `tab` attribute in your inline class:
+
+```python
+from unfold.admin import TabularInline
+
+class MyInline(TabularInline):
+    model = MyModel
+    tab = True  # Enable tab display
+    # or
+    classes = ['tab']  # Alternative method
+```
+
+### Collapsed Fieldsets Not Working
+
+**Problem**: Fieldsets with `classes = ['collapse']` are not collapsible.
+
+**Solution**: Ensure you're using Unfold's fieldset structure:
+
+```python
+class MyModelAdmin(ModelAdmin):
+    fieldsets = (
+        ('Section Title', {
+            'fields': ('field1', 'field2'),
+            'classes': ('collapse',),  # Note: tuple, not list
+        }),
+    )
+```
+
+## Performance Issues
+
+### Slow Admin List Views
+
+**Problem**: Changelist pages load slowly with many records.
+
+**Solutions**:
+
+<Warning>
+Always optimize database queries before adjusting pagination settings.
+</Warning>
+
+1. **Use select_related and prefetch_related**:
+   ```python
+   class MyModelAdmin(ModelAdmin):
+       list_select_related = ['foreign_key_field']
+       
+       def get_queryset(self, request):
+           qs = super().get_queryset(request)
+           return qs.prefetch_related('many_to_many_field')
+   ```
+
+2. **Enable infinite pagination**:
+   ```python
+   from unfold.paginator import UnfoldInfinitePaginator
+   
+   class MyModelAdmin(ModelAdmin):
+       paginator = UnfoldInfinitePaginator
+       show_full_result_count = False
+   ```
+
+3. **Reduce list_display fields**:
+   ```python
+   class MyModelAdmin(ModelAdmin):
+       list_display = ['id', 'name', 'status']  # Only essential fields
+   ```
+
+### Large Inline Sets
+
+**Problem**: Change form is slow when there are many inline records.
+
+**Solution**: Use paginated inlines:
+
+```python
+from unfold.admin import TabularInline
+
+class MyInline(TabularInline):
+    model = MyModel
+    extra = 0
+    show_change_link = True
+    per_page = 10  # Enable pagination
+```
+
+## Dark Mode Issues
+
+### Dark Mode Not Switching
+
+**Problem**: Dark mode toggle doesn't work.
+
+**Solution**:
+
+1. Clear browser local storage
+2. Ensure JavaScript is enabled
+3. Check browser console for errors
+
+### Custom Styles Not Respecting Dark Mode
+
+**Problem**: Custom CSS doesn't adapt to dark mode.
+
+**Solution**: Use Tailwind's dark mode classes:
+
+```css
+/* Use dark: prefix for dark mode styles */
+.my-element {
+    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+}
+```
+
+## Integration Issues
+
+### django-import-export Not Styled
+
+**Problem**: Import/Export pages don't have Unfold styling.
+
+**Solution**: Ensure django-import-export is installed and configured:
+
+```python
+INSTALLED_APPS = [
+    "unfold",
+    "import_export",  # After unfold
+    "django.contrib.admin",
+    # ...
+]
+```
+
+See the [django-import-export integration guide](/integrations/django-import-export) for details.
+
+### django-simple-history Issues
+
+**Problem**: History pages not displaying correctly.
+
+**Solution**: Use Unfold's SimpleHistoryAdmin:
+
+```python
+from unfold.admin import ModelAdmin
+from simple_history.admin import SimpleHistoryAdmin
+
+class MyModelAdmin(ModelAdmin, SimpleHistoryAdmin):
+    pass
+```
+
+## Third-Party Package Conflicts
+
+### Tailwind CSS Conflicts
+
+**Problem**: Custom Tailwind classes conflicting with Unfold.
+
+<Note>
+Unfold uses Tailwind CSS 4.x. Ensure your custom Tailwind configuration is compatible.
+</Note>
+
+**Solution**: Use Unfold's safelist feature:
+
+```python
+UNFOLD = {
+    "STYLES": [
+        lambda request: static("css/your-custom-styles.css"),
+    ],
+}
+```
+
+### Alpine.js Conflicts
+
+**Problem**: Custom Alpine.js code interfering with Unfold.
+
+**Solution**: Unfold uses Alpine.js v3. Ensure your code is compatible:
+
+```html
+<!-- Use x-data with correct syntax -->
+<div x-data="{ open: false }">
+    <!-- Your code -->
+</div>
+```
+
+## Production Issues
+
+### Assets Not Loading in Production
+
+**Problem**: Static files work in development but not production.
+
+**Checklist**:
+
+<Accordion title="Production Static Files Checklist">
+  - [ ] `DEBUG = False` in settings
+  - [ ] `STATIC_ROOT` is correctly configured
+  - [ ] `python manage.py collectstatic` has been run
+  - [ ] Web server is serving static files from `STATIC_ROOT`
+  - [ ] `ALLOWED_HOSTS` includes your domain
+  - [ ] Static files have correct permissions (readable by web server)
+</Accordion>
+
+### CSRF Token Errors
+
+**Problem**: Forms failing with CSRF token errors.
+
+**Solution**:
+
+```python
+# settings.py
+CSRF_TRUSTED_ORIGINS = [
+    'https://yourdomain.com',
+    'https://www.yourdomain.com',
+]
+```
+
+## Debugging Tips
+
+### Enable Django Debug Toolbar
+
+```bash
+pip install django-debug-toolbar
+```
+
+```python
+# settings.py (development only)
+if DEBUG:
+    INSTALLED_APPS += ['debug_toolbar']
+    MIDDLEWARE += ['debug_toolbar.middleware.DebugToolbarMiddleware']
+    INTERNAL_IPS = ['127.0.0.1']
+```
+
+### Check Browser Console
+
+Most JavaScript-related issues appear in the browser console:
+1. Open DevTools (F12)
+2. Go to Console tab
+3. Look for error messages
+
+### Inspect Network Requests
+
+For static file issues:
+1. Open DevTools Network tab
+2. Refresh the page
+3. Look for failed requests (red status codes)
+
+## Getting Additional Help
+
+If your issue isn't covered here:
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="question" href="/resources/faq">
+    Frequently asked questions
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/9sQj9MEbNz">
+    Ask the community for help
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/unfoldadmin/django-unfold/issues">
+    Search existing issues or create a new one
+  </Card>
+  <Card title="Professional Support" icon="headset" href="https://unfoldadmin.com/support/">
+    Get expert assistance
+  </Card>
+</CardGroup>

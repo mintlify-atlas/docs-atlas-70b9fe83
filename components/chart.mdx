@@ -1,0 +1,329 @@
+---
+title: Chart Component
+description: Display data visualizations using Chart.js integration
+---
+
+Django Unfold uses Chart.js for rendering interactive charts and data visualizations. While Unfold doesn't provide a dedicated chart component template, it includes Chart.js in its dependencies for building custom visualizations.
+
+## Chart.js Integration
+
+Unfold includes Chart.js as part of its JavaScript dependencies. You can create custom charts in your admin templates.
+
+## Basic Setup
+
+### Template Structure
+
+```django
+{% extends "unfold/layouts/base.html" %}
+{% load static %}
+
+{% block content %}
+  {% component "unfold/components/card.html" with title="Sales Chart" %}
+    <canvas id="myChart"></canvas>
+  {% endcomponent %}
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const ctx = document.getElementById('myChart').getContext('2d');
+      const myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: {{ labels|safe }},
+          datasets: [{
+            label: 'Sales',
+            data: {{ data|safe }},
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+            }
+          }
+        }
+      });
+    });
+  </script>
+{% endblock %}
+```
+
+### Python View
+
+```python
+from django.contrib import admin
+from django.views.generic import TemplateView
+from unfold.admin import ModelAdmin
+from unfold.views import UnfoldModelAdminViewMixin
+import json
+
+class ChartView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Sales Dashboard"
+    template_name = "admin/charts/sales.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Prepare chart data
+        context['labels'] = json.dumps(['Jan', 'Feb', 'Mar', 'Apr', 'May'])
+        context['data'] = json.dumps([12, 19, 3, 5, 2])
+        
+        return context
+
+@admin.register(MyModel)
+class MyModelAdmin(ModelAdmin):
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('charts/', 
+                 self.admin_site.admin_view(ChartView.as_view(model_admin=self)),
+                 name='charts'),
+        ]
+        return custom_urls + urls
+```
+
+## Chart Types
+
+### Line Chart
+
+```javascript
+const lineChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ['January', 'February', 'March', 'April'],
+    datasets: [{
+      label: 'Revenue',
+      data: [12000, 19000, 15000, 17000],
+      borderColor: 'rgb(59, 130, 246)',
+      tension: 0.4
+    }]
+  },
+  options: {
+    responsive: true
+  }
+});
+```
+
+### Bar Chart
+
+```javascript
+const barChart = new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: ['Product A', 'Product B', 'Product C'],
+    datasets: [{
+      label: 'Sales',
+      data: [65, 59, 80],
+      backgroundColor: [
+        'rgba(59, 130, 246, 0.5)',
+        'rgba(16, 185, 129, 0.5)',
+        'rgba(249, 115, 22, 0.5)'
+      ]
+    }]
+  }
+});
+```
+
+### Pie Chart
+
+```javascript
+const pieChart = new Chart(ctx, {
+  type: 'pie',
+  data: {
+    labels: ['Active', 'Pending', 'Inactive'],
+    datasets: [{
+      data: [300, 50, 100],
+      backgroundColor: [
+        'rgb(34, 197, 94)',
+        'rgb(234, 179, 8)',
+        'rgb(239, 68, 68)'
+      ]
+    }]
+  }
+});
+```
+
+### Doughnut Chart
+
+```javascript
+const doughnutChart = new Chart(ctx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Desktop', 'Mobile', 'Tablet'],
+    datasets: [{
+      data: [450, 320, 100],
+      backgroundColor: [
+        'rgb(59, 130, 246)',
+        'rgb(16, 185, 129)',
+        'rgb(249, 115, 22)'
+      ]
+    }]
+  }
+});
+```
+
+## Dark Mode Support
+
+Adapt chart colors for dark mode:
+
+```javascript
+const isDarkMode = document.documentElement.classList.contains('dark');
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    // ... data
+  },
+  options: {
+    plugins: {
+      legend: {
+        labels: {
+          color: isDarkMode ? '#e5e7eb' : '#1f2937'
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: {
+          color: isDarkMode ? '#9ca3af' : '#6b7280'
+        },
+        grid: {
+          color: isDarkMode ? '#374151' : '#e5e7eb'
+        }
+      },
+      y: {
+        ticks: {
+          color: isDarkMode ? '#9ca3af' : '#6b7280'
+        },
+        grid: {
+          color: isDarkMode ? '#374151' : '#e5e7eb'
+        }
+      }
+    }
+  }
+});
+```
+
+## Complete Dashboard Example
+
+```python
+# admin.py
+from django.db.models import Count, Sum
+from django.utils import timezone
+from datetime import timedelta
+import json
+
+class DashboardView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Analytics Dashboard"
+    template_name = "admin/dashboard.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get last 7 days data
+        today = timezone.now().date()
+        dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') 
+                 for i in range(6, -1, -1)]
+        
+        # Aggregate orders per day
+        orders_data = Order.objects.filter(
+            created_at__date__gte=today - timedelta(days=6)
+        ).values('created_at__date').annotate(
+            count=Count('id')
+        ).order_by('created_at__date')
+        
+        orders_by_date = {str(item['created_at__date']): item['count'] 
+                          for item in orders_data}
+        
+        context['chart_labels'] = json.dumps(dates)
+        context['chart_data'] = json.dumps([
+            orders_by_date.get(date, 0) for date in dates
+        ])
+        
+        return context
+```
+
+```django
+{# templates/admin/dashboard.html #}
+{% extends "unfold/layouts/base.html" %}
+{% load unfold %}
+
+{% block content %}
+<div class="container mx-auto">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    {% component "unfold/components/card.html" with title="Orders This Week" %}
+      <canvas id="ordersChart" height="200"></canvas>
+    {% endcomponent %}
+    
+    {% component "unfold/components/card.html" with title="Revenue Breakdown" %}
+      <canvas id="revenueChart" height="200"></canvas>
+    {% endcomponent %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Orders chart
+    new Chart(document.getElementById('ordersChart'), {
+      type: 'line',
+      data: {
+        labels: {{ chart_labels|safe }},
+        datasets: [{
+          label: 'Orders',
+          data: {{ chart_data|safe }},
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+  });
+</script>
+{% endblock %}
+```
+
+## Best Practices
+
+1. **Responsive Design**: Set `responsive: true` and use `maintainAspectRatio: false` for flexible sizing
+2. **Data Serialization**: Use `json.dumps()` in Python and `|safe` filter in templates
+3. **Color Consistency**: Use Unfold's color palette (primary-600, etc.)
+4. **Dark Mode**: Detect and adapt to dark mode theme
+5. **Performance**: Limit data points for large datasets
+
+## Styling with Tailwind
+
+Chart containers can use Tailwind CSS classes:
+
+```django
+{% component "unfold/components/card.html" with title="Chart" %}
+  <div class="h-64 lg:h-96">
+    <canvas id="myChart"></canvas>
+  </div>
+{% endcomponent %}
+```
+
+## Related Components
+
+- [Card](/components/card) - Wrap charts in cards
+- [Progress](/components/progress) - Simple progress indicators
+- [Tracker](/components/tracker) - Activity grid visualizations
+
+## External Resources
+
+- [Chart.js Documentation](https://www.chartjs.org/docs/latest/)
+- [Chart.js Samples](https://www.chartjs.org/docs/latest/samples/)
+- [Unfold Credits](https://github.com/unfoldadmin/django-unfold#credits) - Chart.js is licensed under MIT

@@ -1,0 +1,252 @@
+---
+title: 'Color customization'
+description: 'Customize Django Unfold colors using the COLORS configuration'
+keywords: ['colors', 'theme', 'customization', 'branding', 'design']
+---
+
+Django Unfold uses a comprehensive color system based on OKLCH color space, providing consistent and accessible color palettes for your admin interface.
+
+## Color configuration
+
+Customize colors through the `COLORS` setting in your `UNFOLD` configuration:
+
+```python settings.py
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "50": "oklch(97.7% .014 308.299)",
+            "100": "oklch(94.6% .033 307.174)",
+            # ... more shades
+        },
+    },
+}
+```
+
+## Color structure
+
+<ParamField path="COLORS" type="object">
+  Complete color system configuration using OKLCH color space.
+
+  <Expandable title="properties">
+    <ParamField path="base" type="object">
+      Base color palette used for backgrounds, borders, and neutral elements.
+      
+      <Expandable title="shades">
+        <ParamField path="50" type="string" default="oklch(98.5% .002 247.839)">
+          Lightest shade.
+        </ParamField>
+        
+        <ParamField path="100" type="string" default="oklch(96.7% .003 264.542)">
+          Very light shade.
+        </ParamField>
+        
+        <ParamField path="200" type="string" default="oklch(92.8% .006 264.531)">
+          Light shade.
+        </ParamField>
+        
+        <ParamField path="300" type="string" default="oklch(87.2% .01 258.338)">
+          Light-medium shade.
+        </ParamField>
+        
+        <ParamField path="400" type="string" default="oklch(70.7% .022 261.325)">
+          Medium-light shade.
+        </ParamField>
+        
+        <ParamField path="500" type="string" default="oklch(55.1% .027 264.364)">
+          Medium shade.
+        </ParamField>
+        
+        <ParamField path="600" type="string" default="oklch(44.6% .03 256.802)">
+          Medium-dark shade.
+        </ParamField>
+        
+        <ParamField path="700" type="string" default="oklch(37.3% .034 259.733)">
+          Dark shade.
+        </ParamField>
+        
+        <ParamField path="800" type="string" default="oklch(27.8% .033 256.848)">
+          Very dark shade.
+        </ParamField>
+        
+        <ParamField path="900" type="string" default="oklch(21% .034 264.665)">
+          Darkest shade.
+        </ParamField>
+        
+        <ParamField path="950" type="string" default="oklch(13% .028 261.692)">
+          Extra dark shade.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField path="primary" type="object">
+      Primary brand color palette used for buttons, links, and accents.
+      
+      <Expandable title="shades">
+        <ParamField path="50" type="string" default="oklch(97.7% .014 308.299)">
+          Lightest primary shade.
+        </ParamField>
+        
+        <ParamField path="100" type="string" default="oklch(94.6% .033 307.174)">
+          Very light primary shade.
+        </ParamField>
+        
+        <ParamField path="200" type="string" default="oklch(90.2% .063 306.703)">
+          Light primary shade.
+        </ParamField>
+        
+        <ParamField path="300" type="string" default="oklch(82.7% .119 306.383)">
+          Light-medium primary shade.
+        </ParamField>
+        
+        <ParamField path="400" type="string" default="oklch(71.4% .203 305.504)">
+          Medium-light primary shade.
+        </ParamField>
+        
+        <ParamField path="500" type="string" default="oklch(62.7% .265 303.9)">
+          Medium primary shade (default button color).
+        </ParamField>
+        
+        <ParamField path="600" type="string" default="oklch(55.8% .288 302.321)">
+          Medium-dark primary shade.
+        </ParamField>
+        
+        <ParamField path="700" type="string" default="oklch(49.6% .265 301.924)">
+          Dark primary shade.
+        </ParamField>
+        
+        <ParamField path="800" type="string" default="oklch(43.8% .218 303.724)">
+          Very dark primary shade.
+        </ParamField>
+        
+        <ParamField path="900" type="string" default="oklch(38.1% .176 304.987)">
+          Darkest primary shade.
+        </ParamField>
+        
+        <ParamField path="950" type="string" default="oklch(29.1% .149 302.717)">
+          Extra dark primary shade.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField path="font" type="object">
+      Font color configuration for light and dark themes.
+      
+      <Expandable title="properties">
+        <ParamField path="subtle-light" type="string" default="var(--color-base-500)">
+          Subtle text color for light theme.
+        </ParamField>
+        
+        <ParamField path="subtle-dark" type="string" default="var(--color-base-400)">
+          Subtle text color for dark theme.
+        </ParamField>
+        
+        <ParamField path="default-light" type="string" default="var(--color-base-600)">
+          Default text color for light theme.
+        </ParamField>
+        
+        <ParamField path="default-dark" type="string" default="var(--color-base-300)">
+          Default text color for dark theme.
+        </ParamField>
+        
+        <ParamField path="important-light" type="string" default="var(--color-base-900)">
+          Important/emphasized text color for light theme.
+        </ParamField>
+        
+        <ParamField path="important-dark" type="string" default="var(--color-base-100)">
+          Important/emphasized text color for dark theme.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## OKLCH color space
+
+Unfold uses the OKLCH color space for consistent and perceptually uniform colors. OKLCH provides:
+
+- Perceptual uniformity across lightness values
+- Better color manipulation and interpolation
+- Consistent contrast ratios
+- Wide color gamut support
+
+### OKLCH format
+
+```
+oklch(lightness% chroma hue)
+```
+
+- **Lightness**: 0-100%, controls brightness
+- **Chroma**: 0-0.4+, controls color intensity
+- **Hue**: 0-360, controls color angle
+
+## Customizing colors
+
+### Custom primary color
+
+```python settings.py
+UNFOLD = {
+    "COLORS": {
+        "primary": {
+            "50": "oklch(98% .01 150)",
+            "100": "oklch(95% .02 150)",
+            "200": "oklch(90% .04 150)",
+            "300": "oklch(83% .08 150)",
+            "400": "oklch(72% .15 150)",
+            "500": "oklch(64% .20 150)",
+            "600": "oklch(56% .22 150)",
+            "700": "oklch(48% .20 150)",
+            "800": "oklch(40% .16 150)",
+            "900": "oklch(33% .12 150)",
+            "950": "oklch(25% .10 150)",
+        },
+    },
+}
+```
+
+### Custom font colors
+
+```python settings.py
+UNFOLD = {
+    "COLORS": {
+        "font": {
+            "subtle-light": "oklch(60% .01 250)",
+            "subtle-dark": "oklch(70% .01 250)",
+            "default-light": "oklch(40% .02 250)",
+            "default-dark": "oklch(85% .02 250)",
+            "important-light": "oklch(20% .03 250)",
+            "important-dark": "oklch(95% .03 250)",
+        },
+    },
+}
+```
+
+### Using CSS variables
+
+Font colors can reference other color variables:
+
+```python settings.py
+UNFOLD = {
+    "COLORS": {
+        "font": {
+            "subtle-light": "var(--color-base-500)",
+            "default-light": "var(--color-primary-700)",
+        },
+    },
+}
+```
+
+## Color tools
+
+To generate OKLCH color palettes:
+
+- [OKLCH Color Picker](https://oklch.com)
+- [Colorffy](https://colorffy.com) - Generate complete palettes
+- [Evil Martians OKLCH](https://oklch.evilmartians.io)
+
+<Tip>
+Start with your brand color in the 500 shade and adjust lightness and chroma for other shades while keeping the hue consistent.
+</Tip>
+
+<Warning>
+When customizing colors, ensure sufficient contrast ratios for accessibility. Test your colors in both light and dark themes.
+</Warning>

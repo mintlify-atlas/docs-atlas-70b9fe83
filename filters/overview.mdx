@@ -1,0 +1,189 @@
+---
+title: 'Filters Overview'
+description: 'Advanced filtering system for Django admin with rich UI components'
+icon: 'filter'
+---
+
+## Introduction
+
+Django Unfold provides a comprehensive filtering system that extends Django's built-in admin filters with modern, interactive UI components. The filters are designed to improve the user experience when working with large datasets in the admin interface.
+
+<Note>
+All filters are located in `unfold.contrib.filters.admin` and extend Django's native filter classes while adding enhanced functionality and styling.
+</Note>
+
+## Available Filter Types
+
+Unfold offers seven categories of filters, each optimized for specific data types and use cases:
+
+<CardGroup cols={2}>
+  <Card title="Dropdown Filters" icon="angle-down" href="/filters/dropdown">
+    Single and multiple selection dropdowns for choices and related fields
+  </Card>
+  
+  <Card title="Autocomplete Filters" icon="magnifying-glass" href="/filters/autocomplete">
+    Search-enabled filters for large datasets with AJAX-powered autocomplete
+  </Card>
+  
+  <Card title="Numeric Filters" icon="hashtag" href="/filters/numeric">
+    Range, slider, and single value filters for numeric fields
+  </Card>
+  
+  <Card title="Date/Time Filters" icon="calendar" href="/filters/datetime">
+    Date and datetime range pickers with intuitive calendar UI
+  </Card>
+  
+  <Card title="Text Filters" icon="input-text" href="/filters/text">
+    Text search filters with case-insensitive matching
+  </Card>
+  
+  <Card title="Checkbox & Radio" icon="square-check" href="/filters/checkbox-radio">
+    Multiple and single selection filters using checkboxes and radio buttons
+  </Card>
+</CardGroup>
+
+## Installation
+
+Before using filters, add the filters app to your Django settings:
+
+```python settings.py
+INSTALLED_APPS = [
+    # ... other apps
+    "unfold",
+    "unfold.contrib.filters",  # Enable filters
+    "django.contrib.admin",
+    # ...
+]
+```
+
+## Basic Usage
+
+Filters are used in the `list_filter` attribute of your `ModelAdmin` classes. Here's a basic example:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import (
+    DropdownFilter,
+    RangeDateFilter,
+    SingleNumericFilter,
+)
+
+from .models import Product
+
+
+class CategoryFilter(DropdownFilter):
+    title = "Category"
+    parameter_name = "category"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("electronics", "Electronics"),
+            ("clothing", "Clothing"),
+            ("books", "Books"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(category=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        CategoryFilter,
+        ("price", SingleNumericFilter),
+        ("created_at", RangeDateFilter),
+    ]
+```
+
+## Filter Features
+
+### Faceted Counts
+
+<Info>
+When Django's `show_facets` is enabled, filters automatically display the count of items for each option.
+</Info>
+
+```python admin.py
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    show_facets = admin.ShowFacets.ALWAYS
+    list_filter = [
+        ("category", DropdownFilter),
+    ]
+```
+
+This will display counts like "Electronics (42)" next to each filter option.
+
+### Custom Templates
+
+Each filter type uses a specific template that can be overridden:
+
+- **Field filters**: `unfold/filters/filters_field.html`
+- **Numeric range**: `unfold/filters/filters_numeric_range.html`
+- **Numeric slider**: `unfold/filters/filters_numeric_slider.html`
+- **Numeric single**: `unfold/filters/filters_numeric_single.html`
+- **Date range**: `unfold/filters/filters_date_range.html`
+- **Datetime range**: `unfold/filters/filters_datetime_range.html`
+
+### Form Classes
+
+Filters use dedicated form classes for rendering:
+
+- `DropdownForm` - Standard dropdown select
+- `AutocompleteDropdownForm` - AJAX-enabled autocomplete
+- `CheckboxForm` - Multiple checkboxes
+- `RadioForm` / `HorizontalRadioForm` - Radio buttons
+- `SearchForm` - Text input with search
+- `SingleNumericForm` - Single number input
+- `RangeNumericForm` - From/to number inputs
+- `SliderNumericForm` - Interactive range slider
+- `RangeDateForm` - Date range picker
+- `RangeDateTimeForm` - Datetime range picker
+
+## Migration from Django Filters
+
+<Accordion title="Upgrading from standard Django admin filters">
+
+Unfold filters are designed as drop-in replacements for Django's built-in filters:
+
+| Django Filter | Unfold Replacement |
+|--------------|--------------------|
+| `SimpleListFilter` | `DropdownFilter`, `RadioFilter`, or `CheckboxFilter` |
+| `ChoicesFieldListFilter` | `ChoicesDropdownFilter` or `ChoicesRadioFilter` |
+| `RelatedFieldListFilter` | `RelatedDropdownFilter` or `RelatedCheckboxFilter` |
+| `BooleanFieldListFilter` | `BooleanRadioFilter` |
+| `AllValuesFieldListFilter` | `AllValuesCheckboxFilter` |
+
+Simply import from `unfold.contrib.filters.admin` instead of `django.contrib.admin`.
+
+</Accordion>
+
+## Performance Considerations
+
+<Warning>
+For large datasets (>10,000 records), consider using `AutocompleteSelectFilter` instead of dropdown filters to avoid loading all options at once.
+</Warning>
+
+## Next Steps
+
+Explore each filter type in detail:
+
+<Steps>
+  <Step title="Dropdown Filters">
+    Learn about single and multiple selection dropdowns
+    [View Dropdown Filters →](/filters/dropdown)
+  </Step>
+  
+  <Step title="Autocomplete Filters">
+    Implement search-enabled filters for large datasets
+    [View Autocomplete Filters →](/filters/autocomplete)
+  </Step>
+  
+  <Step title="Specialized Filters">
+    Explore numeric, date/time, text, and choice filters
+    [View All Filter Types →](/filters/numeric)
+  </Step>
+</Steps>

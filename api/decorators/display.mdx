@@ -1,0 +1,263 @@
+---
+title: "@display Decorator"
+description: Complete API reference for the Unfold display decorator
+---
+
+## Overview
+
+The `@display` decorator enhances Django's standard `@display` decorator with Unfold-specific features for customizing list display fields, including labels, headers, and dropdown formatting.
+
+## Decorator Signature
+
+```python
+from unfold.decorators import display
+
+@display(
+    function: Callable[[Model], Any] | None = None,
+    *,
+    boolean: bool | None = None,
+    image: bool | None = None,
+    ordering: str | Combinable | BaseExpression | None = None,
+    description: str | None = None,
+    empty_value: str | None = None,
+    dropdown: bool | None = None,
+    label: bool | str | dict[str, str] | None = None,
+    header: bool | None = None,
+) -> Callable
+```
+
+Located in `unfold/decorators.py:98`
+
+## Parameters
+
+<ParamField path="function" type="Callable[[Model], Any] | None" default="None">
+  The function to decorate. Can be None when using the decorator with parameters.
+</ParamField>
+
+<ParamField path="boolean" type="bool | None" default="None">
+  Display the field as a boolean (True/False icon). Mutually exclusive with `empty_value`.
+</ParamField>
+
+<ParamField path="image" type="bool | None" default="None">
+  Display the field as an image thumbnail.
+</ParamField>
+
+<ParamField path="ordering" type="str | Combinable | BaseExpression | None" default="None">
+  Field name or expression to use for ordering when clicking the column header.
+</ParamField>
+
+<ParamField path="description" type="str | None" default="None">
+  Column header text. Defaults to the function name.
+</ParamField>
+
+<ParamField path="empty_value" type="str | None" default="None">
+  String to display when the value is empty. Mutually exclusive with `boolean`.
+</ParamField>
+
+<ParamField path="dropdown" type="bool | None" default="None">
+  Display the field in a dropdown format (Unfold-specific).
+</ParamField>
+
+<ParamField path="label" type="bool | str | dict[str, str] | None" default="None">
+  Display the field as a label/badge with styling. Can be:
+  - `True`: Auto-detect label style
+  - `str`: Use specific color (e.g., `"success"`, `"warning"`)
+  - `dict`: Map values to colors (e.g., `{"published": "success", "draft": "warning"}`)
+</ParamField>
+
+<ParamField path="header" type="bool | None" default="None">
+  Display the field as a header with enhanced styling (Unfold-specific).
+</ParamField>
+
+## Usage Examples
+
+### Basic Display
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "author_name", "status"]
+    
+    @display(description="Author")
+    def author_name(self, obj):
+        return obj.author.get_full_name()
+```
+
+### Boolean Display
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "is_published", "has_images"]
+    
+    @display(boolean=True, description="Published")
+    def is_published(self, obj):
+        return obj.status == "published"
+    
+    @display(boolean=True, ordering="images__count")
+    def has_images(self, obj):
+        return obj.images.exists()
+```
+
+### Image Display
+
+```python
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "thumbnail", "price"]
+    
+    @display(image=True, description="Preview")
+    def thumbnail(self, obj):
+        if obj.image:
+            return obj.image.url
+        return None
+```
+
+### Label Display with Colors
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "status_label", "priority_label"]
+    
+    @display(
+        description="Status",
+        label={
+            "published": "success",
+            "draft": "warning",
+            "archived": "danger",
+        },
+    )
+    def status_label(self, obj):
+        return obj.status
+    
+    @display(
+        description="Priority",
+        label=True,  # Auto-detect color
+    )
+    def priority_label(self, obj):
+        return obj.priority
+```
+
+### Label with Single Color
+
+```python
+@display(description="Category", label="info")
+def category_label(self, obj):
+    return obj.category.name
+```
+
+### Empty Value Handling
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "published_date"]
+    
+    @display(
+        description="Published",
+        empty_value="Not published yet",
+        ordering="published_at",
+    )
+    def published_date(self, obj):
+        return obj.published_at
+```
+
+### Dropdown Display
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "tags_dropdown"]
+    
+    @display(description="Tags", dropdown=True)
+    def tags_dropdown(self, obj):
+        return [tag.name for tag in obj.tags.all()]
+```
+
+### Header Display
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title_header", "author", "date"]
+    
+    @display(header=True, description="Article Title")
+    def title_header(self, obj):
+        return obj.title
+```
+
+### Ordering with Expression
+
+```python
+from django.db.models import Count
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    list_display = ["name", "article_count"]
+    
+    @display(
+        description="Articles",
+        ordering=Count("articles"),
+    )
+    def article_count(self, obj):
+        return obj.articles.count()
+```
+
+### Complex Display with HTML
+
+```python
+from django.utils.html import format_html
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "author_with_link"]
+    
+    @display(description="Author", ordering="author__last_name")
+    def author_with_link(self, obj):
+        url = f"/admin/authors/author/{obj.author.id}/change/"
+        return format_html(
+            '<a href="{}">{}</a>',
+            url,
+            obj.author.get_full_name()
+        )
+```
+
+### Combining Multiple Options
+
+```python
+@display(
+    description="Verification Status",
+    label={"verified": "success", "pending": "warning", "rejected": "danger"},
+    ordering="verified_at",
+    empty_value="Not verified",
+)
+def verification_status(self, obj):
+    if obj.verified_at:
+        return "verified"
+    elif obj.rejected_at:
+        return "rejected"
+    return "pending"
+```
+
+## Label Color Options
+
+When using the `label` parameter, the following color values are typically supported:
+
+- `"success"` - Green badge
+- `"warning"` - Yellow/orange badge
+- `"danger"` - Red badge
+- `"info"` - Blue badge
+- `"default"` - Gray badge
+
+## Notes
+
+- The `boolean` and `empty_value` parameters are mutually exclusive. Using both will raise a `ValueError`.
+- When using `boolean=True`, the decorator will display checkmark/cross icons instead of text.
+- The `image` parameter expects the function to return a URL string.
+- The `label` parameter with a dictionary maps return values to specific colors.
+- The `ordering` parameter can accept field names, related field lookups, or Django ORM expressions.

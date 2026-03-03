@@ -1,0 +1,272 @@
+---
+title: ModelAdmin
+description: Complete API reference for the Unfold ModelAdmin class
+---
+
+## Overview
+
+The `ModelAdmin` class extends Django's base `ModelAdmin` with Unfold-specific features for enhanced admin interface customization.
+
+## Class Signature
+
+```python
+from unfold.admin import ModelAdmin
+
+class ModelAdmin(
+    BaseModelAdminMixin,
+    ActionModelAdminMixin,
+    DatasetModelAdminMixin,
+    BaseModelAdmin
+)
+```
+
+Located in `unfold/admin.py:51`
+
+## Attributes
+
+<ParamField path="action_form" type="Type[Form]" default="ActionForm">
+  Custom form class for actions in the changelist.
+</ParamField>
+
+<ParamField path="custom_urls" type="tuple" default="()">
+  Tuple of custom URL patterns for the ModelAdmin. Format: `("path_to_view", "name_of_view", view_itself)`
+</ParamField>
+
+<ParamField path="add_fieldsets" type="tuple" default="()">
+  Fieldsets to use when creating a new object. If not set, falls back to `fieldsets`.
+</ParamField>
+
+<ParamField path="ordering_field" type="str | None" default="None">
+  Field name to use for custom ordering functionality.
+</ParamField>
+
+<ParamField path="hide_ordering_field" type="bool" default="False">
+  Whether to hide the ordering field from display.
+</ParamField>
+
+<ParamField path="list_horizontal_scrollbar_top" type="bool" default="False">
+  Show horizontal scrollbar at the top of the changelist table.
+</ParamField>
+
+<ParamField path="list_filter_submit" type="bool" default="False">
+  Add a submit button to list filters.
+</ParamField>
+
+<ParamField path="list_filter_sheet" type="bool" default="True">
+  Display filters in a sheet (modal) interface.
+</ParamField>
+
+<ParamField path="list_fullwidth" type="bool" default="False">
+  Make the changelist table full width.
+</ParamField>
+
+<ParamField path="list_disable_select_all" type="bool" default="False">
+  Disable the "select all" checkbox in the changelist.
+</ParamField>
+
+<ParamField path="list_before_template" type="str | None" default="None">
+  Template path to render before the changelist.
+</ParamField>
+
+<ParamField path="list_after_template" type="str | None" default="None">
+  Template path to render after the changelist.
+</ParamField>
+
+<ParamField path="change_form_before_template" type="str | None" default="None">
+  Template path to render before the change form.
+</ParamField>
+
+<ParamField path="change_form_after_template" type="str | None" default="None">
+  Template path to render after the change form.
+</ParamField>
+
+<ParamField path="change_form_outer_before_template" type="str | None" default="None">
+  Template path to render before the outer change form container.
+</ParamField>
+
+<ParamField path="change_form_outer_after_template" type="str | None" default="None">
+  Template path to render after the outer change form container.
+</ParamField>
+
+<ParamField path="change_form_datasets" type="tuple" default="()">
+  Tuple of dataset classes to use in the change form.
+</ParamField>
+
+<ParamField path="compressed_fields" type="bool" default="False">
+  Use compressed layout for form fields.
+</ParamField>
+
+<ParamField path="show_add_link" type="bool" default="True">
+  Show the "Add" link in related field widgets.
+</ParamField>
+
+<ParamField path="readonly_preprocess_fields" type="dict[str, Callable | str]" default="{}">
+  Dictionary mapping field names to preprocessing functions for readonly fields.
+</ParamField>
+
+<ParamField path="warn_unsaved_form" type="bool" default="False">
+  Show a warning when leaving a page with unsaved form changes.
+</ParamField>
+
+<ParamField path="checks_class" type="Type" default="UnfoldModelAdminChecks">
+  Custom checks class for admin validation.
+</ParamField>
+
+## Methods
+
+### changelist_view
+
+```python
+def changelist_view(
+    self,
+    request: HttpRequest,
+    extra_context: dict[str, str] | None = None
+) -> TemplateResponse
+```
+
+Renders the changelist view with Unfold customizations.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+<ParamField path="extra_context" type="dict[str, str] | None">
+  Additional context data for the template.
+</ParamField>
+
+### get_list_display
+
+```python
+def get_list_display(self, request: HttpRequest) -> list | tuple
+```
+
+Returns the list of fields to display in the changelist.
+
+### get_fieldsets
+
+```python
+def get_fieldsets(
+    self,
+    request: HttpRequest,
+    obj: Model | None = None
+) -> FieldsetsType
+```
+
+Returns fieldsets for the change form. Uses `add_fieldsets` for new objects if defined.
+
+### get_custom_urls
+
+```python
+def get_custom_urls(self) -> tuple[tuple[str, str, View], ...]
+```
+
+Returns custom URLs defined for this ModelAdmin.
+
+### get_urls
+
+```python
+def get_urls(self) -> list[URLPattern]
+```
+
+Returns all URL patterns including custom URLs and action URLs.
+
+### get_action_choices
+
+```python
+def get_action_choices(
+    self,
+    request: HttpRequest,
+    default_choices: list[tuple[str, str]] = BLANK_CHOICE_DASH
+) -> list[tuple[str, str]]
+```
+
+Returns available action choices for the changelist.
+
+### response_change
+
+```python
+def response_change(
+    self,
+    request: HttpRequest,
+    obj: Model
+) -> HttpResponse
+```
+
+Handles the response after changing an object. Supports `?next=` parameter for custom redirects.
+
+### response_add
+
+```python
+def response_add(
+    self,
+    request: HttpRequest,
+    obj: Model,
+    post_url_continue: str | None = None
+) -> HttpResponse
+```
+
+Handles the response after adding an object. Supports `?next=` parameter for custom redirects.
+
+### get_changelist
+
+```python
+def get_changelist(self, request: HttpRequest, **kwargs: Any) -> ChangeList
+```
+
+Returns the ChangeList class to use for this ModelAdmin.
+
+### get_formset_kwargs
+
+```python
+def get_formset_kwargs(
+    self,
+    request: HttpRequest,
+    obj: Model,
+    inline: InlineModelAdmin,
+    prefix: str
+) -> dict[str, Any]
+```
+
+Returns kwargs for inline formsets, including pagination support.
+
+### get_changeform_datasets
+
+```python
+def get_changeform_datasets(
+    self,
+    request: HttpRequest
+) -> list[type[BaseDataset]]
+```
+
+Returns the list of dataset classes for the change form.
+
+## Usage Example
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "author", "created_at"]
+    list_filter = ["status", "created_at"]
+    list_filter_submit = True
+    list_fullwidth = True
+    warn_unsaved_form = True
+    
+    add_fieldsets = (
+        (None, {
+            "fields": ("title", "content"),
+        }),
+    )
+    
+    fieldsets = (
+        (None, {
+            "fields": ("title", "slug", "content"),
+        }),
+        ("Metadata", {
+            "fields": ("author", "status", "created_at"),
+        }),
+    )
+```

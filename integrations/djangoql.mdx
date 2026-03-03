@@ -1,0 +1,456 @@
+---
+title: DjangoQL
+description: Add powerful advanced search capabilities to Django Unfold with DjangoQL's intuitive query language and autocomplete
+---
+
+## Overview
+
+DjangoQL provides an advanced search language for Django admin, allowing users to construct complex queries using an intuitive syntax with autocomplete suggestions. Unfold automatically styles DjangoQL's search interface to match your admin theme.
+
+<Info>
+  DjangoQL enables power users to perform complex searches without requiring custom filters, making data exploration faster and more flexible.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install djangoql">
+    Install the package using pip:
+    
+    ```bash
+    pip install djangoql
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add djangoql to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "django.contrib.admin",
+        # ...
+        
+        "djangoql",
+    ]
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  No additional Unfold contrib app is needed. Unfold automatically applies custom styling to DjangoQL components.
+</Note>
+
+## Basic Usage
+
+### Enable DjangoQL in Admin
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from djangoql.admin import DjangoQLSearchMixin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(DjangoQLSearchMixin, ModelAdmin):
+    list_display = ["title", "author", "status", "published_date"]
+```
+
+<Tip>
+  Place `DjangoQLSearchMixin` before `ModelAdmin` in the inheritance chain to ensure proper functionality.
+</Tip>
+
+### Search Examples
+
+Once enabled, users can perform advanced searches:
+
+```sql
+# Find articles by specific author
+author.username = "john"
+
+# Multiple conditions
+status = "published" and published_date > "2024-01-01"
+
+# Complex queries
+(status = "draft" or status = "review") and author.username ~ "admin"
+
+# Null checks
+published_date is not null
+
+# Range queries
+view_count >= 100 and view_count <= 1000
+```
+
+## Query Syntax
+
+### Comparison Operators
+
+```sql
+# Equality
+status = "published"
+author.id = 123
+
+# Inequality
+status != "draft"
+
+# Greater than / Less than
+view_count > 100
+published_date < "2024-12-31"
+
+# Greater than or equal / Less than or equal
+rating >= 4.5
+price <= 99.99
+```
+
+### String Operators
+
+```sql
+# Contains (case-insensitive)
+title ~ "django"
+
+# Starts with
+author.username ~^ "admin"
+
+# Ends with
+email ~$ "@example.com"
+
+# Case-sensitive contains
+content ~* "Python"
+```
+
+### Logical Operators
+
+```sql
+# AND
+status = "published" and view_count > 100
+
+# OR
+status = "draft" or status = "review"
+
+# NOT
+not status = "archived"
+
+# Grouping with parentheses
+(status = "published" or status = "featured") and author.is_staff = True
+```
+
+### Null Checks
+
+```sql
+# Is null
+published_date is null
+
+# Is not null
+published_date is not null
+```
+
+### Boolean Fields
+
+```sql
+# Boolean values
+is_featured = True
+is_active = False
+```
+
+### Date Queries
+
+```sql
+# Specific date
+published_date = "2024-03-15"
+
+# Date range
+published_date >= "2024-01-01" and published_date <= "2024-12-31"
+
+# This year
+published_date >= "2024-01-01"
+```
+
+### Related Fields
+
+```sql
+# Foreign key fields
+author.username = "john"
+author.email ~$ "@company.com"
+author.profile.department = "Engineering"
+
+# Many-to-many relationships
+tags.name ~ "python"
+category.slug = "tutorials"
+```
+
+## Customization
+
+### Limit Searchable Fields
+
+Control which fields can be searched:
+
+```python admin.py
+from djangoql.schema import DjangoQLSchema
+
+class ArticleQLSchema(DjangoQLSchema):
+    include = (Article,)  # Only allow searching Article model
+    
+    def get_fields(self, model):
+        if model == Article:
+            # Only allow searching these fields
+            return ["title", "status", "published_date", "author"]
+        return super().get_fields(model)
+
+@admin.register(Article)
+class ArticleAdmin(DjangoQLSearchMixin, ModelAdmin):
+    djangoql_schema = ArticleQLSchema
+```
+
+### Custom Field Suggestions
+
+Add custom autocomplete suggestions:
+
+```python admin.py
+class ArticleQLSchema(DjangoQLSchema):
+    def get_field_suggestions(self, model, field_name):
+        if model == Article and field_name == "status":
+            # Custom status suggestions
+            return ["draft", "published", "archived", "review"]
+        return super().get_field_suggestions(model, field_name)
+```
+
+### Exclude Fields
+
+Hide specific fields from search:
+
+```python admin.py
+class ArticleQLSchema(DjangoQLSchema):
+    exclude = ("internal_notes", "secret_field")
+```
+
+### Custom Model Name
+
+Change how models appear in suggestions:
+
+```python admin.py
+class ArticleQLSchema(DjangoQLSchema):
+    def get_model_label(self, model):
+        if model == Article:
+            return "Blog Post"
+        return super().get_model_label(model)
+```
+
+## Advanced Features
+
+### Combining with Regular Search
+
+Use both DjangoQL and regular search:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(DjangoQLSearchMixin, ModelAdmin):
+    # Regular search still works
+    search_fields = ["title", "content"]
+    
+    # Users can toggle between regular and advanced search
+```
+
+### Performance Optimization
+
+Optimize queries with select_related and prefetch_related:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(DjangoQLSearchMixin, ModelAdmin):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("author", "category").prefetch_related("tags")
+```
+
+### Custom Completion
+
+Provide dynamic completion based on database:
+
+```python admin.py
+class ArticleQLSchema(DjangoQLSchema):
+    def get_field_suggestions(self, model, field_name):
+        if model == Article and field_name == "author":
+            # Return actual usernames from database
+            from django.contrib.auth import get_user_model
+            User = get_user_model()
+            return list(User.objects.values_list("username", flat=True)[:10])
+        return super().get_field_suggestions(model, field_name)
+```
+
+## Unfold Styling
+
+Unfold automatically styles:
+
+- **Search input**: Consistent with Unfold's text inputs
+- **Toggle checkbox**: Matches Unfold's form elements
+- **Dropdown suggestions**: Styled autocomplete dropdown
+- **Syntax highlighting**: Query syntax with proper colors
+
+<Note>
+  Unfold removes the default DjangoQL documentation link for a cleaner interface. Users can still access query syntax through the autocomplete suggestions.
+</Note>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Content Management">
+    Find articles by complex criteria:
+    
+    ```sql
+    # Published articles with high engagement
+    status = "published" and view_count > 1000 and published_date >= "2024-01-01"
+    
+    # Draft articles by specific authors
+    status = "draft" and (author.username = "john" or author.username = "jane")
+    ```
+  </Accordion>
+  
+  <Accordion title="User Management">
+    Search users with specific attributes:
+    
+    ```sql
+    # Active staff members
+    is_active = True and is_staff = True
+    
+    # Users who haven't logged in recently
+    last_login < "2024-01-01" or last_login is null
+    
+    # Users from specific domain
+    email ~$ "@company.com" and date_joined > "2023-01-01"
+    ```
+  </Accordion>
+  
+  <Accordion title="E-commerce Orders">
+    Find orders matching criteria:
+    
+    ```sql
+    # Large pending orders
+    status = "pending" and total > 1000
+    
+    # Orders from VIP customers
+    customer.tier = "vip" and created_date >= "2024-01-01"
+    
+    # Shipped orders with tracking
+    status = "shipped" and tracking_number is not null
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Analysis">
+    Analyze records with complex filters:
+    
+    ```sql
+    # Products with low stock and high demand
+    stock_quantity < 10 and sales_last_month > 50
+    
+    # Underperforming campaigns
+    campaign.status = "active" and conversion_rate < 0.02
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Query Examples by Field Type
+
+### CharField and TextField
+
+```sql
+# Exact match
+title = "Django Tutorial"
+
+# Contains
+content ~ "python"
+
+# Starts with
+slug ~^ "tutorial"
+
+# Ends with
+email ~$ ".com"
+```
+
+### IntegerField and DecimalField
+
+```sql
+# Exact value
+view_count = 100
+
+# Range
+price >= 10 and price <= 50
+
+# Greater than
+stock > 0
+```
+
+### DateField and DateTimeField
+
+```sql
+# Specific date
+published_date = "2024-03-15"
+
+# Date range
+created_at >= "2024-01-01" and created_at < "2024-02-01"
+
+# Before/after
+updated_at > "2024-01-01"
+```
+
+### BooleanField
+
+```sql
+# True/False
+is_active = True
+is_featured = False
+
+# Combined with other conditions
+is_published = True and view_count > 100
+```
+
+### ForeignKey
+
+```sql
+# By ID
+author.id = 5
+
+# By related field
+author.username = "admin"
+author.email ~ "@example.com"
+
+# Nested relationships
+author.profile.department = "Sales"
+```
+
+### ManyToManyField
+
+```sql
+# Has specific tag
+tags.name = "python"
+
+# Multiple tags
+tags.slug ~ "django" or tags.slug ~ "python"
+```
+
+## Limitations
+
+DjangoQL does not style:
+
+- Custom documentation pages
+- Introspection pages
+- Pages outside the main admin interface
+
+<Warning>
+  Complex queries on large datasets may impact performance. Consider adding database indexes on frequently searched fields.
+</Warning>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="DjangoQL Documentation" icon="book" href="https://github.com/ivelum/djangoql">
+    Official documentation and query syntax
+  </Card>
+  
+  <Card title="Query Language Reference" icon="file-code" href="https://github.com/ivelum/djangoql#query-language">
+    Complete syntax reference and examples
+  </Card>
+</CardGroup>
+
+<Tip>
+  Train your users on DjangoQL syntax with a few simple examples. The autocomplete feature makes it easy to discover available fields and operators.
+</Tip>

@@ -1,0 +1,626 @@
+---
+title: 'Text Filters'
+description: 'Text search filters with case-insensitive matching for Django admin'
+icon: 'input-text'
+---
+
+## Overview
+
+Text filters provide search input fields that allow users to filter querysets by text content. They support case-insensitive pattern matching and are ideal for searching through text fields.
+
+<Info>
+Text filters use Django's `__icontains` lookup by default, providing case-insensitive substring matching.
+</Info>
+
+## Available Text Filters
+
+<CardGroup cols={2}>
+  <Card title="TextFilter" icon="magnifying-glass">
+    Custom text search filter using SimpleListFilter
+  </Card>
+  
+  <Card title="FieldTextFilter" icon="text">
+    Automatic text search for CharField and TextField
+  </Card>
+</CardGroup>
+
+## TextFilter
+
+Create custom text search filters with full control over the query logic.
+
+### Basic Usage
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import TextFilter
+
+from .models import Product
+
+
+class NameSearchFilter(TextFilter):
+    title = "Name"
+    parameter_name = "name_search"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(name__icontains=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "description", "sku"]
+    list_filter = [NameSearchFilter]
+```
+
+<Tip>
+Users can type any text to search. The filter applies automatically as the form is submitted.
+</Tip>
+
+### Multi-Field Search
+
+Search across multiple fields:
+
+```python admin.py
+from django.db.models import Q
+
+
+class MultiFieldSearchFilter(TextFilter):
+    title = "Search"
+    parameter_name = "search"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                Q(name__icontains=self.value()) |
+                Q(description__icontains=self.value()) |
+                Q(sku__icontains=self.value())
+            )
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [MultiFieldSearchFilter]
+```
+
+### Related Field Search
+
+Search through related models:
+
+```python models.py
+from django.db import models
+
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+```
+
+```python admin.py
+class CategoryNameFilter(TextFilter):
+    title = "Category Name"
+    parameter_name = "category_name"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                category__name__icontains=self.value()
+            )
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [CategoryNameFilter]
+```
+
+## FieldTextFilter
+
+Automatically create text search filters for model fields.
+
+### Basic Usage
+
+```python models.py
+from django.db import models
+
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    slug = models.SlugField(unique=True)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import FieldTextFilter
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "slug"]
+    list_filter = [
+        ("title", FieldTextFilter),
+        ("slug", FieldTextFilter),
+    ]
+```
+
+<Note>
+Use the tuple format `(field_name, FilterClass)` when applying filters to specific model fields.
+</Note>
+
+### How It Works
+
+By default, `FieldTextFilter` uses `__icontains` lookup:
+
+```python
+# User types: "django"
+# Query becomes:
+queryset.filter(title__icontains="django")
+```
+
+### Custom Lookup
+
+Override the lookup type:
+
+```python admin.py
+from unfold.contrib.filters.admin import FieldTextFilter
+
+
+class ExactMatchFilter(FieldTextFilter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Change from __icontains to __iexact
+        self.lookup_kwarg = f"{self.field_path}__iexact"
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_filter = [
+        ("slug", ExactMatchFilter),
+    ]
+```
+
+## Advanced Examples
+
+### Case-Sensitive Search
+
+```python admin.py
+class CaseSensitiveFilter(TextFilter):
+    title = "Name (exact case)"
+    parameter_name = "name_exact"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(name__contains=self.value())  # Case-sensitive
+        return queryset
+```
+
+### Starts With Search
+
+```python admin.py
+class StartsWithFilter(TextFilter):
+    title = "Name Starts With"
+    parameter_name = "name_starts"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(name__istartswith=self.value())
+        return queryset
+```
+
+### Regular Expression Search
+
+```python admin.py
+class RegexFilter(TextFilter):
+    title = "Regex Search"
+    parameter_name = "regex"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            try:
+                return queryset.filter(name__iregex=self.value())
+            except Exception:
+                # Invalid regex - return unfiltered
+                return queryset
+        return queryset
+```
+
+### Full-Text Search (PostgreSQL)
+
+```python admin.py
+from django.contrib.postgres.search import SearchQuery, SearchVector
+
+
+class FullTextSearchFilter(TextFilter):
+    title = "Full-Text Search"
+    parameter_name = "fulltext"
+
+    def queryset(self, request, queryset):
+        if self.value():
+            vector = SearchVector('title', 'content')
+            query = SearchQuery(self.value())
+            return queryset.annotate(
+                search=vector
+            ).filter(search=query)
+        return queryset
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_filter = [FullTextSearchFilter]
+```
+
+<Info>
+Full-text search requires PostgreSQL and the `django.contrib.postgres` app in `INSTALLED_APPS`.
+</Info>
+
+## Combining with Other Filters
+
+```python admin.py
+from unfold.contrib.filters.admin import (
+    FieldTextFilter,
+    RangeDateFilter,
+    DropdownFilter,
+)
+
+
+class StatusFilter(DropdownFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("draft", "Draft"),
+            ("published", "Published"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(status=self.value())
+        return queryset
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_filter = [
+        ("title", FieldTextFilter),        # Text search
+        StatusFilter,                       # Dropdown
+        ("created_at", RangeDateFilter),   # Date range
+    ]
+```
+
+## Search Field Types
+
+### CharField
+
+```python models.py
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+```
+
+```python admin.py
+list_filter = [
+    ("name", FieldTextFilter),  # Works perfectly
+]
+```
+
+### TextField
+
+```python models.py
+class Article(models.Model):
+    content = models.TextField()
+```
+
+```python admin.py
+list_filter = [
+    ("content", FieldTextFilter),  # Searches long text
+]
+```
+
+<Warning>
+Searching large TextField content can be slow. Consider adding database indexes or using full-text search.
+</Warning>
+
+### EmailField
+
+```python models.py
+class User(models.Model):
+    email = models.EmailField(unique=True)
+```
+
+```python admin.py
+list_filter = [
+    ("email", FieldTextFilter),
+]
+```
+
+### SlugField
+
+```python models.py
+class Article(models.Model):
+    slug = models.SlugField(unique=True)
+```
+
+```python admin.py
+list_filter = [
+    ("slug", FieldTextFilter),
+]
+```
+
+## Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Database indexes">
+    Add indexes for frequently searched fields:
+
+    ```python models.py
+    class Product(models.Model):
+        name = models.CharField(max_length=200, db_index=True)
+        sku = models.CharField(max_length=50, db_index=True)
+    ```
+  </Accordion>
+
+  <Accordion title="Limit search scope">
+    Use `__istartswith` instead of `__icontains` when possible:
+
+    ```python admin.py
+    def queryset(self, request, queryset):
+        if self.value():
+            # Faster than __icontains
+            return queryset.filter(name__istartswith=self.value())
+        return queryset
+    ```
+  </Accordion>
+
+  <Accordion title="Full-text indexes">
+    For large text fields, use database-specific full-text indexes:
+
+    ```python
+    # PostgreSQL
+    from django.contrib.postgres.indexes import GinIndex
+    from django.contrib.postgres.search import SearchVectorField
+
+    class Article(models.Model):
+        search_vector = SearchVectorField(null=True)
+
+        class Meta:
+            indexes = [
+                GinIndex(fields=['search_vector']),
+            ]
+    ```
+  </Accordion>
+
+  <Accordion title="Query optimization">
+    Use `select_related()` and `prefetch_related()` for related field searches:
+
+    ```python admin.py
+    @admin.register(Product)
+    class ProductAdmin(ModelAdmin):
+        list_filter = [("category__name", FieldTextFilter)]
+
+        def get_queryset(self, request):
+            return super().get_queryset(request).select_related('category')
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## User Experience
+
+### Empty Value Handling
+
+```python admin.py
+class NameSearchFilter(TextFilter):
+    title = "Name"
+    parameter_name = "name"
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        
+        # Handle empty strings and whitespace
+        if value and value.strip():
+            return queryset.filter(name__icontains=value.strip())
+        
+        return queryset
+```
+
+### Minimum Length Requirement
+
+```python admin.py
+class MinLengthSearchFilter(TextFilter):
+    title = "Search (min 3 chars)"
+    parameter_name = "search"
+    MIN_LENGTH = 3
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        
+        if value and len(value.strip()) >= self.MIN_LENGTH:
+            return queryset.filter(name__icontains=value.strip())
+        
+        return queryset
+```
+
+### Special Character Handling
+
+```python admin.py
+import re
+
+class SafeSearchFilter(TextFilter):
+    title = "Safe Search"
+    parameter_name = "search"
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        
+        if value:
+            # Remove special characters that might cause issues
+            safe_value = re.sub(r'[^\w\s-]', '', value)
+            
+            if safe_value:
+                return queryset.filter(name__icontains=safe_value)
+        
+        return queryset
+```
+
+## Custom Form Styling
+
+```python admin.py
+from unfold.contrib.filters.forms import SearchForm
+
+
+class CustomSearchForm(SearchForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add placeholder text
+        for field in self.fields.values():
+            field.widget.attrs.update({
+                'placeholder': 'Type to search...',
+                'autocomplete': 'off',
+            })
+
+
+class StyledTextFilter(TextFilter):
+    form_class = CustomSearchForm
+    title = "Search"
+    parameter_name = "search"
+```
+
+## API Reference
+
+### TextFilter
+
+<ParamField path="title" type="str" required>
+  Display name for the filter in the admin
+</ParamField>
+
+<ParamField path="parameter_name" type="str" required>
+  URL parameter name for the search value
+</ParamField>
+
+<ParamField path="form_class" type="type[SearchForm]" default="SearchForm">
+  Form class used for rendering the search input
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_field.html"'>
+  Template used to render the filter
+</ParamField>
+
+### FieldTextFilter
+
+<ParamField path="lookup_kwarg" type="str">
+  Automatically generated as `{field_path}__icontains`
+</ParamField>
+
+<ParamField path="form_class" type="type[SearchForm]" default="SearchForm">
+  Form class used for rendering the search input
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_field.html"'>
+  Template used to render the filter
+</ParamField>
+
+### Methods
+
+<ResponseField name="queryset" type="method">
+  ```python
+  def queryset(self, request, queryset):
+      if self.value():
+          return queryset.filter(field__icontains=self.value())
+      return queryset
+  ```
+  Filters the queryset based on the search value.
+</ResponseField>
+
+<ResponseField name="value" type="method">
+  ```python
+  def value(self):
+      return self.used_parameters.get(self.parameter_name)
+  ```
+  Returns the current search text.
+</ResponseField>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose appropriate lookups">
+    - `__icontains`: General substring search (slowest)
+    - `__istartswith`: Prefix search (faster, can use indexes)
+    - `__iexact`: Exact match (fastest)
+    - Full-text search: Best for large text fields
+  </Step>
+
+  <Step title="Add database indexes">
+    Index searchable fields to improve performance:
+    ```python
+    name = models.CharField(max_length=200, db_index=True)
+    ```
+  </Step>
+
+  <Step title="Handle edge cases">
+    - Trim whitespace from user input
+    - Handle empty strings gracefully
+    - Consider minimum length requirements
+    - Validate special characters
+  </Step>
+
+  <Step title="Consider alternatives">
+    - Use `AutocompleteSelectFilter` for searching related objects
+    - Use Django's built-in `search_fields` for simple cases
+    - Use database full-text search for large text fields
+  </Step>
+</Steps>
+
+## Comparison with search_fields
+
+<AccordionGroup>
+  <Accordion title="When to use TextFilter">
+    - Need filter UI in sidebar
+    - Want to combine with other filters
+    - Need custom search logic
+    - Want to search related fields
+  </Accordion>
+
+  <Accordion title="When to use search_fields">
+    ```python admin.py
+    @admin.register(Product)
+    class ProductAdmin(ModelAdmin):
+        search_fields = ['name', 'sku', 'description']
+    ```
+    - Need global search bar at top
+    - Simple multi-field search
+    - Standard Django behavior
+    - Better for quick lookups
+  </Accordion>
+
+  <Accordion title="Using both together">
+    ```python admin.py
+    @admin.register(Product)
+    class ProductAdmin(ModelAdmin):
+        search_fields = ['name', 'sku']  # Top search bar
+        list_filter = [
+            ("description", FieldTextFilter),  # Sidebar filter
+        ]
+    ```
+    Combine for maximum flexibility!
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Autocomplete Filters" icon="magnifying-glass" href="/filters/autocomplete">
+    Learn about AJAX-powered autocomplete for related objects
+  </Card>
+  
+  <Card title="Checkbox & Radio" icon="square-check" href="/filters/checkbox-radio">
+    Explore checkbox and radio button filters
+  </Card>
+</CardGroup>

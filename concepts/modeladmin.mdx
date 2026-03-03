@@ -1,0 +1,609 @@
+---
+title: "ModelAdmin"
+description: "Deep dive into Unfold's ModelAdmin class and its powerful features"
+---
+
+## Introduction
+
+The `ModelAdmin` class is the cornerstone of Django Unfold. It extends Django's standard `ModelAdmin` with enhanced UI capabilities, additional configuration options, and powerful customization features while maintaining full backward compatibility.
+
+```python
+from unfold.admin import ModelAdmin
+
+class ArticleAdmin(ModelAdmin):
+    list_display = ['title', 'author', 'published_at']
+    search_fields = ['title', 'content']
+```
+
+<Info>
+Every Django admin attribute you're familiar with works in Unfold's ModelAdmin. You're extending functionality, not replacing it.
+</Info>
+
+## Class Hierarchy
+
+Unfold's ModelAdmin inherits from multiple mixins and Django's base admin:
+
+```python
+class ModelAdmin(
+    BaseModelAdminMixin,        # Widget and form handling
+    ActionModelAdminMixin,       # Enhanced actions
+    DatasetModelAdminMixin,      # Chart integration  
+    BaseModelAdmin               # Django's admin.ModelAdmin
+):
+    pass
+```
+
+This composition pattern allows Unfold to:
+- Override form widgets automatically
+- Add custom action types
+- Integrate visualization components
+- Preserve all Django admin functionality
+
+## Configuration Attributes
+
+### Form Display Options
+
+Control how forms are rendered in the change view:
+
+```python
+class MyModelAdmin(ModelAdmin):
+    # Use compressed layout for form fields
+    compressed_fields = True
+    
+    # Warn users about unsaved changes
+    warn_unsaved_form = True
+    
+    # Show/hide add link in related field widgets
+    show_add_link = True
+```
+
+<Accordion title="compressed_fields">
+  When enabled, form fields use a more compact layout with reduced spacing.
+  
+  ```python
+  compressed_fields = True
+  ```
+  
+  **Use case:** Forms with many fields that benefit from a denser layout.
+</Accordion>
+
+<Accordion title="warn_unsaved_form">
+  Shows a browser confirmation dialog when users try to leave with unsaved changes.
+  
+  ```python
+  warn_unsaved_form = True
+  ```
+  
+  **Use case:** Prevent accidental data loss on complex forms.
+</Accordion>
+
+### List Display Options
+
+Customize the change list view appearance and behavior:
+
+```python
+class MyModelAdmin(ModelAdmin):
+    # Add horizontal scrollbar at top of list
+    list_horizontal_scrollbar_top = True
+    
+    # Require filter submission (no auto-apply)
+    list_filter_submit = True
+    
+    # Use sheet-style filters instead of sidebar
+    list_filter_sheet = True
+    
+    # Make list take full width
+    list_fullwidth = True
+    
+    # Disable "select all" functionality
+    list_disable_select_all = True
+```
+
+#### list_horizontal_scrollbar_top
+
+<Info>
+Useful for wide tables where users need to scroll horizontally frequently. Having a scrollbar at both top and bottom improves UX.
+</Info>
+
+```python
+class ProductAdmin(ModelAdmin):
+    list_display = ['sku', 'name', 'category', 'price', 'stock', 'supplier', 'created', 'modified']
+    list_horizontal_scrollbar_top = True
+```
+
+#### list_filter_submit
+
+<Warning>
+When enabled, filters won't auto-apply. Users must click a submit button. This is better for performance with expensive filters.
+</Warning>
+
+```python
+class OrderAdmin(ModelAdmin):
+    list_filter = ['status', 'created_at', 'total']
+    list_filter_submit = True  # Users must click "Apply" to filter
+```
+
+#### list_filter_sheet
+
+By default, Unfold uses a sheet (modal) for filters on mobile. Set to `False` to use sidebar filtering:
+
+```python
+class UserAdmin(ModelAdmin):
+    list_filter_sheet = False  # Always use sidebar
+```
+
+#### list_fullwidth
+
+Make the change list take the full width of the viewport:
+
+```python
+class LogEntryAdmin(ModelAdmin):
+    list_display = ['timestamp', 'user', 'action', 'ip_address', 'details']
+    list_fullwidth = True  # Use all available space
+```
+
+### Template Injection
+
+Inject custom templates at strategic points in the admin interface:
+
+```python
+class ArticleAdmin(ModelAdmin):
+    # Change list templates
+    list_before_template = "myapp/stats_header.html"
+    list_after_template = "myapp/bulk_actions.html"
+    
+    # Change form templates (inner)
+    change_form_before_template = "myapp/form_instructions.html"
+    change_form_after_template = "myapp/form_footer.html"
+    
+    # Change form templates (outer wrapper)
+    change_form_outer_before_template = "myapp/outer_header.html"
+    change_form_outer_after_template = "myapp/outer_footer.html"
+```
+
+<Tabs>
+  <Tab title="List Templates">
+    **list_before_template**: Injected before the change list table
+    
+    **list_after_template**: Injected after the change list table
+    
+    ```html
+    <!-- myapp/stats_header.html -->
+    <div class="bg-blue-50 p-4 rounded mb-4">
+      <h3>Total Records: {{ cl.result_count }}</h3>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Form Templates">
+    **change_form_before_template**: Before form fields
+    
+    **change_form_after_template**: After form fields
+    
+    ```html
+    <!-- myapp/form_instructions.html -->
+    <div class="alert alert-info">
+      <p>Please review all required fields carefully.</p>
+    </div>
+    ```
+  </Tab>
+  
+  <Tab title="Outer Templates">
+    **change_form_outer_before_template**: Before entire form container
+    
+    **change_form_outer_after_template**: After entire form container
+    
+    ```html
+    <!-- myapp/outer_header.html -->
+    <div class="banner">
+      <strong>Editing in Production Environment</strong>
+    </div>
+    ```
+  </Tab>
+</Tabs>
+
+### Fieldsets and Add Form
+
+Control field organization differently for add vs change forms:
+
+```python
+class UserAdmin(ModelAdmin):
+    # Standard fieldsets for change form
+    fieldsets = (
+        ('Personal Info', {
+            'fields': ('username', 'email', 'first_name', 'last_name')
+        }),
+        ('Permissions', {
+            'fields': ('is_active', 'is_staff', 'groups')
+        }),
+    )
+    
+    # Different fieldsets for add form
+    add_fieldsets = (
+        ('Create User', {
+            'fields': ('username', 'email', 'password1', 'password2')
+        }),
+    )
+```
+
+<Tip>
+Use `add_fieldsets` when the add form needs different fields than the change form (common with User models).
+</Tip>
+
+### Ordering Fields
+
+Add drag-and-drop ordering to your model:
+
+```python
+class CategoryAdmin(ModelAdmin):
+    list_display = ['name', 'parent', 'order']
+    
+    # Enable ordering
+    ordering_field = 'order'
+    
+    # Hide the ordering field from display
+    hide_ordering_field = True
+```
+
+**How it works:**
+1. `ordering_field` specifies which model field stores the order
+2. Unfold automatically adds drag handles to list rows
+3. `hide_ordering_field` keeps the order field visible but styled for drag operations
+
+<CodeGroup>
+```python Model
+from django.db import models
+
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+    order = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ['order']
+```
+
+```python Admin
+from unfold.admin import ModelAdmin
+
+class CategoryAdmin(ModelAdmin):
+    list_display = ['name', 'order']
+    ordering_field = 'order'
+    hide_ordering_field = False  # Show order numbers
+```
+</CodeGroup>
+
+### Custom URLs
+
+Add custom views accessible from the admin:
+
+```python
+from django.shortcuts import render
+from django.http import HttpResponse
+
+def export_view(request, model_admin):
+    # Custom export logic
+    return HttpResponse("Export complete")
+
+class ArticleAdmin(ModelAdmin):
+    custom_urls = (
+        ("export/", "article_export", export_view),
+    )
+```
+
+The custom URL format: `(path, url_name, view_function)`
+
+**Accessing custom URLs:**
+```python
+# In templates
+{% url 'admin:blog_article_article_export' %}
+
+# In code
+reverse('admin:blog_article_article_export')
+```
+
+<Warning>
+Custom views are automatically wrapped with `admin_site.admin_view()` for permission checking.
+</Warning>
+
+### Readonly Preprocessing
+
+Transform readonly field values before display:
+
+```python
+class OrderAdmin(ModelAdmin):
+    readonly_fields = ['total', 'status_display', 'created_by']
+    
+    readonly_preprocess_fields = {
+        'total': lambda x: f"${x:,.2f}",
+        'status_display': lambda x: x.upper(),
+    }
+```
+
+**Use cases:**
+- Format currency values
+- Transform dates
+- Add prefixes/suffixes
+- Apply text transformations
+
+```python
+class TransactionAdmin(ModelAdmin):
+    readonly_fields = ['amount', 'transaction_date', 'reference']
+    
+    readonly_preprocess_fields = {
+        'amount': lambda value: f"${value:,.2f} USD",
+        'reference': lambda value: f"REF-{value}",
+    }
+```
+
+## Action Form Customization
+
+Unfold uses a custom action form with improved styling:
+
+```python
+from unfold.forms import ActionForm
+
+class MyActionForm(ActionForm):
+    extra_field = forms.CharField(required=False)
+
+class MyModelAdmin(ModelAdmin):
+    action_form = MyActionForm
+```
+
+## Dataset Integration
+
+Add charts and visualizations to the change form:
+
+```python
+from unfold.datasets import BaseDataset
+import json
+
+class SalesDataset(BaseDataset):
+    title = "Monthly Sales"
+    
+    def get_data(self):
+        # Fetch data from your model
+        data = self.model.objects.values('month').annotate(
+            total=Sum('amount')
+        )
+        
+        return {
+            'labels': [item['month'] for item in data],
+            'datasets': [{
+                'label': 'Sales',
+                'data': [item['total'] for item in data]
+            }]
+        }
+
+class SalesAdmin(ModelAdmin):
+    change_form_datasets = (SalesDataset,)
+```
+
+<Info>
+Datasets appear above the form in the change view, providing context and insights about the object being edited.
+</Info>
+
+## Media and Assets
+
+Unfold automatically includes required CSS and JavaScript. Add custom media:
+
+```python
+class MyModelAdmin(ModelAdmin):
+    class Media:
+        css = {
+            'all': ('myapp/custom.css',)
+        }
+        js = ('myapp/custom.js',)
+```
+
+## Method Overrides
+
+Common methods you might override:
+
+### get_list_display
+
+```python
+class ArticleAdmin(ModelAdmin):
+    def get_list_display(self, request):
+        list_display = ['title', 'author']
+        
+        if request.user.is_superuser:
+            list_display.append('internal_notes')
+        
+        return list_display
+```
+
+### get_fieldsets
+
+```python
+class UserAdmin(ModelAdmin):
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        
+        if not request.user.is_superuser:
+            # Remove permission fieldset for non-superusers
+            fieldsets = [fs for fs in fieldsets if fs[0] != 'Permissions']
+        
+        return fieldsets
+```
+
+### changelist_view
+
+```python
+class ProductAdmin(ModelAdmin):
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['summary_stats'] = self.get_summary_stats()
+        return super().changelist_view(request, extra_context)
+    
+    def get_summary_stats(self):
+        return {
+            'total_products': self.model.objects.count(),
+            'total_value': self.model.objects.aggregate(Sum('price'))['price__sum']
+        }
+```
+
+## Response Handling
+
+Unfold extends response methods to support `?next=` parameter:
+
+```python
+class ArticleAdmin(ModelAdmin):
+    def response_add(self, request, obj, post_url_continue=None):
+        # If ?next= parameter exists, redirect there
+        response = super().response_add(request, obj, post_url_continue)
+        return response
+    
+    def response_change(self, request, obj):
+        # Same for change view
+        response = super().response_change(request, obj)
+        return response
+```
+
+**Usage:**
+```python
+# Link to admin with return URL
+url = reverse('admin:blog_article_change', args=[article.pk])
+url += '?next=/dashboard/'
+```
+
+## Form Field Widgets
+
+Unfold automatically replaces widgets but you can customize per field:
+
+```python
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+class ArticleAdmin(ModelAdmin):
+    formfield_overrides = {
+        models.TextField: {
+            'widget': UnfoldAdminTextareaWidget(attrs={
+                'rows': 10,
+                'class': 'custom-class'
+            })
+        }
+    }
+```
+
+### Available Widgets
+
+<CardGroup cols={2}>
+  <Card title="Text Inputs" icon="keyboard">
+    - `UnfoldAdminTextInputWidget`
+    - `UnfoldAdminTextareaWidget`
+    - `UnfoldAdminExpandableTextareaWidget`
+    - `UnfoldAdminEmailInputWidget`
+    - `UnfoldAdminURLInputWidget`
+  </Card>
+  
+  <Card title="Selections" icon="list">
+    - `UnfoldAdminSelectWidget`
+    - `UnfoldAdminSelectMultipleWidget`
+    - `UnfoldAdminRadioSelectWidget`
+    - `UnfoldAdminAutocompleteWidget`
+  </Card>
+  
+  <Card title="Dates & Times" icon="calendar">
+    - `UnfoldAdminDateWidget`
+    - `UnfoldAdminTimeWidget`
+    - `UnfoldAdminSplitDateTimeWidget`
+  </Card>
+  
+  <Card title="Special" icon="star">
+    - `UnfoldBooleanWidget`
+    - `UnfoldBooleanSwitchWidget`
+    - `UnfoldAdminFileFieldWidget`
+    - `UnfoldAdminImageFieldWidget`
+  </Card>
+</CardGroup>
+
+## Inline Admin
+
+Unfold provides enhanced inline classes:
+
+```python
+from unfold.admin import TabularInline, StackedInline
+
+class CommentInline(TabularInline):
+    model = Comment
+    extra = 1
+    
+    # Unfold-specific options
+    per_page = 10        # Paginate inline rows
+    collapsible = True   # Make inline collapsible
+    ordering_field = 'order'  # Enable drag-and-drop ordering
+
+class ArticleAdmin(ModelAdmin):
+    inlines = [CommentInline]
+```
+
+### Inline Pagination
+
+<Tip>
+Inline pagination is essential for models with many related objects. It prevents performance issues and improves UX.
+</Tip>
+
+```python
+class OrderItemInline(TabularInline):
+    model = OrderItem
+    per_page = 20
+    extra = 0
+```
+
+## Complete Example
+
+Here's a comprehensive ModelAdmin example:
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action, display
+from .models import Article
+
+class ArticleAdmin(ModelAdmin):
+    # Standard Django admin options
+    list_display = ['title', 'author', 'status_badge', 'published_at']
+    list_filter = ['status', 'published_at', 'author']
+    search_fields = ['title', 'content']
+    date_hierarchy = 'published_at'
+    
+    # Unfold display options
+    list_horizontal_scrollbar_top = True
+    list_filter_submit = True
+    compressed_fields = True
+    warn_unsaved_form = True
+    
+    # Fieldsets
+    fieldsets = (
+        ('Content', {
+            'fields': ('title', 'slug', 'content', 'excerpt')
+        }),
+        ('Metadata', {
+            'fields': ('author', 'status', 'published_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    # Template injection
+    list_before_template = 'blog/admin/article_stats.html'
+    
+    # Readonly preprocessing
+    readonly_fields = ['view_count', 'created_at']
+    readonly_preprocess_fields = {
+        'view_count': lambda x: f"{x:,} views"
+    }
+    
+    @display(description="Status", label=True)
+    def status_badge(self, obj):
+        colors = {
+            'draft': 'warning',
+            'published': 'success',
+            'archived': 'secondary'
+        }
+        return colors.get(obj.status, 'secondary')
+
+admin.site.register(Article, ArticleAdmin)
+```
+
+<Check>
+This example demonstrates the seamless integration of Django's standard admin options with Unfold's enhancements.
+</Check>

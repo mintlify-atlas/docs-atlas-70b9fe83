@@ -1,0 +1,434 @@
+---
+title: Detail Actions
+description: Add custom actions to Django admin change form views with the @action decorator
+---
+
+Detail actions appear at the top of your change form view (detail view) and provide quick access to operations related to the specific object being edited. They're perfect for previews, exports, workflow actions, or navigation to related resources.
+
+## Configuration
+
+Detail actions are configured using the `actions_detail` attribute in your `ModelAdmin` class:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail = [
+        "preview_article",
+        "duplicate_article",
+        "view_analytics",
+    ]
+```
+
+## Basic Detail Action
+
+A detail action receives both `request` and `object_id` parameters:
+
+```python
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from unfold.decorators import action
+
+@action(description="Preview Article")
+def preview_article(self, request, object_id):
+    # Get the object
+    article = self.get_object(request, object_id)
+    
+    # Perform action logic
+    preview_url = article.get_preview_url()
+    
+    messages.info(request, f"Opening preview for: {article.title}")
+    return redirect(preview_url)
+```
+
+<Note>
+  Use `self.get_object(request, object_id)` to safely retrieve the object instance.
+</Note>
+
+## Styled Actions with Icons
+
+Enhance detail actions with visual styling:
+
+```python
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Preview",
+    icon="eye",
+    variant=ActionVariant.INFO
+)
+def preview_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    return redirect(article.get_absolute_url())
+
+@action(
+    description="Duplicate",
+    icon="copy",
+    variant=ActionVariant.PRIMARY
+)
+def duplicate_article(self, request, object_id):
+    original = self.get_object(request, object_id)
+    
+    # Create duplicate
+    duplicate = self.model.objects.create(
+        title=f"{original.title} (Copy)",
+        content=original.content,
+        author=request.user,
+    )
+    
+    messages.success(request, f"Article duplicated: {duplicate.title}")
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[duplicate.pk]))
+
+@action(
+    description="Delete",
+    icon="trash",
+    variant=ActionVariant.DANGER
+)
+def delete_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    title = article.title
+    article.delete()
+    
+    messages.warning(request, f"Deleted article: {title}")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Dropdown Groups
+
+Organize related actions into dropdown menus:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail = [
+        "preview",
+        "duplicate",
+        {
+            "title": "Publishing",
+            "icon": "upload",
+            "variant": ActionVariant.SUCCESS,
+            "items": [
+                "publish_now",
+                "schedule_publish",
+                "unpublish",
+            ],
+        },
+        {
+            "title": "Export",
+            "icon": "download",
+            "items": [
+                "export_pdf",
+                "export_docx",
+                "export_markdown",
+            ],
+        },
+    ]
+
+    @action(description="Preview", icon="eye")
+    def preview(self, request, object_id):
+        pass
+
+    @action(description="Duplicate", icon="copy")
+    def duplicate(self, request, object_id):
+        pass
+
+    @action(description="Publish Now", variant=ActionVariant.SUCCESS)
+    def publish_now(self, request, object_id):
+        article = self.get_object(request, object_id)
+        article.status = "published"
+        article.save()
+        messages.success(request, "Article published")
+        return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+    @action(description="Schedule Publishing")
+    def schedule_publish(self, request, object_id):
+        pass
+
+    @action(description="Unpublish", variant=ActionVariant.WARNING)
+    def unpublish(self, request, object_id):
+        pass
+```
+
+<Tip>
+  Group actions by functionality (e.g., Publishing, Export, Workflow) to keep the interface organized.
+</Tip>
+
+## Permission-Protected Actions
+
+Restrict actions based on user permissions:
+
+```python
+@action(
+    description="Publish",
+    permissions=["myapp.publish_article"],
+    icon="check",
+    variant=ActionVariant.SUCCESS
+)
+def publish_article(self, request, object_id):
+    # Only users with publish_article permission can execute this
+    article = self.get_object(request, object_id)
+    article.publish()
+    messages.success(request, "Article published")
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+@action(
+    description="Approve",
+    permissions=["approve"],
+    icon="thumbs-up",
+    variant=ActionVariant.PRIMARY
+)
+def approve_article(self, request, object_id):
+    # Uses custom permission method
+    article = self.get_object(request, object_id)
+    article.approved_by = request.user
+    article.approved_at = timezone.now()
+    article.save()
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+def has_approve_permission(self, request, object_id):
+    # Custom permission logic
+    if not request.user.is_staff:
+        return False
+    
+    # Only allow approving others' articles
+    article = self.get_object(request, object_id)
+    return article.author != request.user
+```
+
+<Note>
+  Detail action permission methods receive both `request` and `object_id` parameters, allowing for object-level permission checks.
+</Note>
+
+## External Preview Example
+
+Open previews in new tabs:
+
+```python
+@action(
+    description="Preview on Site",
+    icon="external-link",
+    variant=ActionVariant.INFO,
+    attrs={"target": "_blank", "rel": "noopener noreferrer"}
+)
+def preview_on_site(self, request, object_id):
+    article = self.get_object(request, object_id)
+    return redirect(article.get_absolute_url())
+
+@action(
+    description="View Analytics",
+    icon="chart-line",
+    attrs={"target": "_blank"},
+    url_path="analytics"
+)
+def view_analytics(self, request, object_id):
+    article = self.get_object(request, object_id)
+    analytics_url = f"https://analytics.example.com/article/{article.id}"
+    return redirect(analytics_url)
+```
+
+## Workflow Actions Example
+
+Implement a complete approval workflow:
+
+```python
+from django.utils import timezone
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail = [
+        {
+            "title": "Workflow",
+            "icon": "diagram-project",
+            "items": [
+                "submit_for_review",
+                "approve",
+                "reject",
+                "publish",
+                "archive",
+            ],
+        },
+    ]
+
+    @action(
+        description="Submit for Review",
+        permissions=["submit_review"],
+        icon="paper-plane",
+        variant=ActionVariant.INFO
+    )
+    def submit_for_review(self, request, object_id):
+        article = self.get_object(request, object_id)
+        article.status = "in_review"
+        article.submitted_at = timezone.now()
+        article.save()
+        
+        # Notify reviewers
+        self._notify_reviewers(article)
+        
+        messages.success(request, "Article submitted for review")
+        return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+    def has_submit_review_permission(self, request, object_id):
+        article = self.get_object(request, object_id)
+        return article.author == request.user and article.status == "draft"
+
+    @action(
+        description="Approve",
+        permissions=["approve"],
+        icon="check-circle",
+        variant=ActionVariant.SUCCESS
+    )
+    def approve(self, request, object_id):
+        article = self.get_object(request, object_id)
+        article.status = "approved"
+        article.approved_by = request.user
+        article.approved_at = timezone.now()
+        article.save()
+        
+        messages.success(request, f"Article approved: {article.title}")
+        return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+    def has_approve_permission(self, request, object_id):
+        article = self.get_object(request, object_id)
+        return (
+            request.user.groups.filter(name="Editors").exists()
+            and article.status == "in_review"
+        )
+
+    @action(
+        description="Reject",
+        permissions=["approve"],
+        icon="times-circle",
+        variant=ActionVariant.DANGER
+    )
+    def reject(self, request, object_id):
+        article = self.get_object(request, object_id)
+        article.status = "rejected"
+        article.rejected_by = request.user
+        article.rejected_at = timezone.now()
+        article.save()
+        
+        messages.warning(request, "Article rejected")
+        return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+    def has_reject_permission(self, request, object_id):
+        return self.has_approve_permission(request, object_id)
+```
+
+## File Export Example
+
+Generate and download files for specific objects:
+
+```python
+import io
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from unfold.decorators import action
+
+@action(
+    description="Export as PDF",
+    icon="file-pdf",
+    variant=ActionVariant.INFO
+)
+def export_pdf(self, request, object_id):
+    article = self.get_object(request, object_id)
+    
+    # Create PDF
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer)
+    
+    # Add content
+    p.drawString(100, 750, f"Title: {article.title}")
+    p.drawString(100, 730, f"Author: {article.author.get_full_name()}")
+    p.drawString(100, 700, "Content:")
+    
+    # Wrap text content
+    text = article.content
+    y = 680
+    for line in text.split('\n'):
+        p.drawString(100, y, line[:80])
+        y -= 20
+    
+    p.showPage()
+    p.save()
+    
+    # Return response
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{article.slug}.pdf"'
+    return response
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Stay on the same page" icon="location-dot">
+    For most detail actions, redirect back to the change form to maintain context:
+    ```python
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+    ```
+  </Accordion>
+
+  <Accordion title="Use object-level permissions" icon="lock">
+    Take advantage of the `object_id` parameter in permission methods:
+    ```python
+    def has_action_permission(self, request, object_id):
+        obj = self.get_object(request, object_id)
+        return obj.author == request.user
+    ```
+  </Accordion>
+
+  <Accordion title="Provide clear feedback" icon="message">
+    Always inform users of the action result:
+    ```python
+    messages.success(request, f"Article '{article.title}' was published")
+    ```
+  </Accordion>
+
+  <Accordion title="Handle errors gracefully" icon="triangle-exclamation">
+    Wrap actions in try-except blocks for better error handling:
+    ```python
+    try:
+        article.publish()
+        messages.success(request, "Published successfully")
+    except ValidationError as e:
+        messages.error(request, f"Publishing failed: {e}")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Hiding Default Buttons
+
+Replace Django's default Save/Delete buttons with custom actions:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail_hide_default = True
+    actions_detail = [
+        "save_article",
+        "delete_article",
+    ]
+```
+
+<Warning>
+  When hiding default buttons, ensure you provide equivalent functionality through your custom actions.
+</Warning>
+
+## Related Actions
+
+<CardGroup cols={2}>
+  <Card title="Submit Line Actions" icon="floppy-disk" href="/actions/submit-line-actions">
+    Add custom buttons to the form submit line
+  </Card>
+  <Card title="List Actions" icon="list" href="/actions/list-actions">
+    Create actions for changelist views
+  </Card>
+</CardGroup>

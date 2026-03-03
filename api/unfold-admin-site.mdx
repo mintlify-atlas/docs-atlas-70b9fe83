@@ -1,0 +1,305 @@
+---
+title: UnfoldAdminSite
+description: Complete API reference for the Unfold admin site class
+---
+
+## Overview
+
+The `UnfoldAdminSite` class extends Django's `AdminSite` to provide Unfold's custom admin interface with enhanced theming, navigation, and configuration options.
+
+## Class Signature
+
+```python
+from unfold.sites import UnfoldAdminSite
+
+class UnfoldAdminSite(AdminSite):
+    default_site = "unfold.admin.UnfoldAdminSite"
+    settings_name = "UNFOLD"
+```
+
+Located in `unfold/sites.py:33`
+
+## Constructor
+
+```python
+def __init__(self, name: str = "admin") -> None
+```
+
+<ParamField path="name" type="str" default="admin">
+  The namespace for the admin site URLs.
+</ParamField>
+
+## Methods
+
+### get_urls
+
+```python
+def get_urls(self) -> list[URLPattern]
+```
+
+Returns URL patterns for the admin site, including Unfold's custom search endpoint.
+
+### each_context
+
+```python
+def each_context(self, request: HttpRequest) -> dict[str, Any]
+```
+
+Builds the context dictionary for every admin page. Includes Unfold-specific configuration like theme, navigation, and branding.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+**Returns:** Dictionary with context variables including:
+- `site_title`, `site_header`, `site_url`
+- `site_logo`, `site_icon`, `site_symbol`
+- `theme`, `colors`, `border_radius`
+- `sidebar_navigation`, `tab_list`
+- `show_history`, `show_languages`, `show_back_button`
+
+### index
+
+```python
+def index(
+    self,
+    request: HttpRequest,
+    extra_context: dict[str, Any] | None = None
+) -> TemplateResponse
+```
+
+Renders the admin index/dashboard page.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+<ParamField path="extra_context" type="dict[str, Any] | None">
+  Additional context data for the template.
+</ParamField>
+
+### search
+
+```python
+def search(
+    self,
+    request: HttpRequest,
+    extra_context: dict[str, Any] | None = None
+) -> TemplateResponse
+```
+
+Handles global search functionality across models and apps.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object with `?s=` query parameter for search term.
+</ParamField>
+
+<ParamField path="extra_context" type="dict[str, Any] | None">
+  Additional context data for the template.
+</ParamField>
+
+### password_change
+
+```python
+def password_change(
+    self,
+    request: HttpRequest,
+    extra_context: dict[str, Any] | None = None
+) -> HttpResponse
+```
+
+Handles password change view with Unfold styling.
+
+### get_sidebar_list
+
+```python
+def get_sidebar_list(self, request: HttpRequest) -> list[dict[str, Any]]
+```
+
+Returns the processed navigation structure for the sidebar.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+**Returns:** List of navigation groups with processed items, badges, and permissions.
+
+### get_tabs_list
+
+```python
+def get_tabs_list(self, request: HttpRequest) -> list[dict[str, Any]]
+```
+
+Returns the processed tab navigation structure.
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+**Returns:** List of tab groups with processed items and active states.
+
+## Internal Methods
+
+### _search_apps
+
+```python
+def _search_apps(
+    self,
+    app_list: list[dict[str, Any]],
+    search_term: str
+) -> list[SearchResult]
+```
+
+Searches through registered apps and models by name.
+
+### _search_models
+
+```python
+def _search_models(
+    self,
+    request: HttpRequest,
+    app_list: list[dict[str, Any]],
+    search_term: str,
+    allowed_models: list[str] | None = None
+) -> list[SearchResult]
+```
+
+Searches within model instances using their search fields.
+
+### _get_navigation_items
+
+```python
+def _get_navigation_items(
+    self,
+    request: HttpRequest,
+    items: list[dict],
+    tabs: list[dict] = None
+) -> list
+```
+
+Processes navigation items with permissions, badges, and active states.
+
+### _get_config
+
+```python
+def _get_config(self, key: str, *args) -> Any
+```
+
+Retrieves configuration value from UNFOLD settings.
+
+### _get_value
+
+```python
+def _get_value(self, value: str | Callable | None, *args: Any) -> Any
+```
+
+Resolves a configuration value which can be a string (import path), callable, or static value.
+
+### _get_colors
+
+```python
+def _get_colors(self, key: str, *args) -> dict[str, dict[str, str]]
+```
+
+Retrieves and processes color configuration.
+
+### _get_theme_images
+
+```python
+def _get_theme_images(self, key: str, *args: Any) -> dict[str, str] | str | None
+```
+
+Retrieves theme images (logo, icon) supporting light/dark mode variants.
+
+### _get_favicons
+
+```python
+def _get_favicons(self, key: str, *args) -> list[Favicon]
+```
+
+Retrieves favicon configuration.
+
+### _call_permission_callback
+
+```python
+def _call_permission_callback(
+    self,
+    callback: str | Callable | None,
+    request: HttpRequest
+) -> bool
+```
+
+Evaluates permission callbacks for navigation items.
+
+## Usage Example
+
+```python
+from django.contrib import admin
+from unfold.sites import UnfoldAdminSite
+
+# Create custom admin site
+site = UnfoldAdminSite(name="myadmin")
+
+# In settings.py
+UNFOLD = {
+    "SITE_TITLE": "My Admin",
+    "SITE_HEADER": "My Administration",
+    "SITE_LOGO": "/static/logo.svg",
+    "THEME": "dark",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Content",
+                "items": [
+                    {
+                        "title": "Articles",
+                        "link": "/admin/blog/article/",
+                        "icon": "article",
+                    },
+                ],
+            },
+        ],
+    },
+}
+
+# Register models
+from myapp.models import Article
+from myapp.admin import ArticleAdmin
+
+site.register(Article, ArticleAdmin)
+```
+
+## Custom Context Extension
+
+You can extend the context by defining an `extra_context` method:
+
+```python
+class MyAdminSite(UnfoldAdminSite):
+    def extra_context(self, context: dict, request: HttpRequest) -> dict:
+        context["custom_value"] = "my_value"
+        return context
+
+site = MyAdminSite()
+```
+
+## Custom URLs
+
+Add custom URLs by defining an `extra_urls` method:
+
+```python
+from django.urls import path
+
+class MyAdminSite(UnfoldAdminSite):
+    def extra_urls(self):
+        return [
+            path('custom-view/', self.admin_view(self.custom_view), name='custom'),
+        ]
+    
+    def custom_view(self, request):
+        # Your custom view logic
+        pass
+
+site = MyAdminSite()
+```

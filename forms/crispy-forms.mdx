@@ -1,0 +1,484 @@
+---
+title: Django Crispy Forms Integration
+description: Integrate Django Crispy Forms with Django Unfold for advanced form layouts
+icon: code
+---
+
+## Introduction
+
+While Django Unfold provides extensive built-in form functionality, you can also integrate Django Crispy Forms for more complex form layouts and custom rendering.
+
+<Info>
+Django Crispy Forms integration is optional. Unfold's built-in widgets cover most use cases without requiring Crispy Forms.
+</Info>
+
+## Installation
+
+Install the crispy forms extra:
+
+<CodeGroup>
+```bash pip
+pip install django-unfold[crispy-forms]
+```
+
+```bash poetry
+poetry add django-unfold[crispy-forms]
+```
+</CodeGroup>
+
+Add to your settings:
+
+```python settings.py
+INSTALLED_APPS = [
+    # ...
+    "unfold",
+    "unfold.contrib.forms",
+    "crispy_forms",
+    "crispy_bootstrap4",  # or your preferred template pack
+]
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap4"
+CRISPY_TEMPLATE_PACK = "bootstrap4"
+```
+
+## Basic Usage
+
+Use Crispy Forms in your admin forms:
+
+```python forms.py
+from django import forms
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout, Field, Fieldset, Div
+from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminTextareaWidget
+
+class ArticleForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Fieldset(
+                'Article Information',
+                Field('title'),
+                Field('slug'),
+                Field('content'),
+            ),
+            Fieldset(
+                'Metadata',
+                Field('author'),
+                Field('published_date'),
+                Field('tags'),
+            )
+        )
+    
+    class Meta:
+        model = Article
+        fields = '__all__'
+        widgets = {
+            'title': UnfoldAdminTextInputWidget(),
+            'content': UnfoldAdminTextareaWidget(),
+        }
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .forms import ArticleForm
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    form = ArticleForm
+```
+
+## Advanced Layouts
+
+### Multi-Column Layout
+
+Create multi-column form layouts:
+
+```python forms.py
+from crispy_forms.layout import Layout, Row, Column, Field
+
+class PersonForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Row(
+                Column(Field('first_name'), css_class='form-group col-md-6'),
+                Column(Field('last_name'), css_class='form-group col-md-6'),
+            ),
+            Row(
+                Column(Field('email'), css_class='form-group col-md-8'),
+                Column(Field('phone'), css_class='form-group col-md-4'),
+            ),
+            Field('address'),
+            Row(
+                Column(Field('city'), css_class='form-group col-md-4'),
+                Column(Field('state'), css_class='form-group col-md-4'),
+                Column(Field('zip_code'), css_class='form-group col-md-4'),
+            ),
+        )
+    
+    class Meta:
+        model = Person
+        fields = '__all__'
+```
+
+### Tabbed Forms
+
+Create tabbed form interfaces:
+
+```python forms.py
+from crispy_forms.layout import Layout, TabHolder, Tab, Field
+
+class ProductForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            TabHolder(
+                Tab(
+                    'Basic Information',
+                    Field('name'),
+                    Field('sku'),
+                    Field('price'),
+                ),
+                Tab(
+                    'Description',
+                    Field('short_description'),
+                    Field('full_description'),
+                ),
+                Tab(
+                    'Images',
+                    Field('main_image'),
+                    Field('gallery_images'),
+                ),
+                Tab(
+                    'SEO',
+                    Field('meta_title'),
+                    Field('meta_description'),
+                    Field('meta_keywords'),
+                ),
+            )
+        )
+    
+    class Meta:
+        model = Product
+        fields = '__all__'
+```
+
+### Accordion Layout
+
+Collapsible sections in forms:
+
+```python forms.py
+from crispy_forms.layout import Layout, Accordion, AccordionGroup, Field
+
+class SettingsForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Accordion(
+                AccordionGroup(
+                    'General Settings',
+                    Field('site_name'),
+                    Field('site_description'),
+                    Field('admin_email'),
+                ),
+                AccordionGroup(
+                    'Email Configuration',
+                    Field('smtp_host'),
+                    Field('smtp_port'),
+                    Field('smtp_username'),
+                    Field('smtp_password'),
+                ),
+                AccordionGroup(
+                    'Social Media',
+                    Field('facebook_url'),
+                    Field('twitter_url'),
+                    Field('linkedin_url'),
+                ),
+            )
+        )
+    
+    class Meta:
+        model = Settings
+        fields = '__all__'
+```
+
+## Custom Field Rendering
+
+### Field Wrappers
+
+Customize field wrapper classes:
+
+```python forms.py
+from crispy_forms.layout import Layout, Field, Div
+
+class CustomForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Div(
+                Field('title', css_class='custom-input'),
+                css_class='custom-wrapper'
+            ),
+            Field('description', wrapper_class='description-field'),
+        )
+```
+
+### Custom Templates
+
+Use custom field templates:
+
+```python forms.py
+from crispy_forms.layout import Layout, Field
+
+class FormWithCustomTemplate(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('name', template='custom/field_template.html'),
+        )
+```
+
+Create the template:
+
+```html templates/custom/field_template.html
+<div class="custom-field-wrapper">
+    <label for="{{ field.id_for_label }}" class="custom-label">
+        {{ field.label }}
+    </label>
+    {% include 'bootstrap4/field.html' %}
+    {% if field.help_text %}
+        <small class="custom-help-text">{{ field.help_text }}</small>
+    {% endif %}
+</div>
+```
+
+## Buttons and Actions
+
+### Custom Submit Buttons
+
+```python forms.py
+from crispy_forms.layout import Layout, Submit, Button, Reset
+
+class FormWithButtons(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('name'),
+            Field('email'),
+            Div(
+                Submit('submit', 'Save', css_class='btn-primary'),
+                Button('cancel', 'Cancel', css_class='btn-secondary'),
+                Reset('reset', 'Reset Form', css_class='btn-warning'),
+                css_class='form-actions'
+            )
+        )
+```
+
+## Inline Formsets
+
+Use Crispy Forms with inline formsets:
+
+```python forms.py
+from django.forms import inlineformset_factory
+from crispy_forms.layout import Layout, Field
+from crispy_forms.helper import FormHelper
+
+class BookInlineForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('title'),
+            Field('isbn'),
+            Field('publication_date'),
+        )
+        self.helper.form_tag = False
+    
+    class Meta:
+        model = Book
+        fields = '__all__'
+
+BookFormSet = inlineformset_factory(
+    Author,
+    Book,
+    form=BookInlineForm,
+    extra=1,
+    can_delete=True
+)
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+class BookInline(admin.StackedInline):
+    model = Book
+    form = BookInlineForm
+    extra = 1
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+## Conditional Display
+
+Combine Crispy Forms with Unfold's conditional fields:
+
+```python forms.py
+from crispy_forms.layout import Layout, Field, Div
+from unfold.widgets import UnfoldAdminSelectWidget
+
+class ConditionalForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('product_type'),
+            Div(
+                Field('download_url'),
+                css_class='conditional-field',
+                x_show="productType === 'digital'"
+            ),
+            Div(
+                Field('weight'),
+                Field('dimensions'),
+                css_class='conditional-field',
+                x_show="productType === 'physical'"
+            ),
+        )
+    
+    product_type = forms.ChoiceField(
+        choices=[('digital', 'Digital'), ('physical', 'Physical')],
+        widget=UnfoldAdminSelectWidget(attrs={'x-model': 'productType'})
+    )
+    
+    class Meta:
+        model = Product
+        fields = '__all__'
+```
+
+## Form Actions
+
+### Disable Form Tag
+
+Disable automatic form tag generation:
+
+```python forms.py
+class AdminCompatibleForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False  # Let admin handle the form tag
+        self.helper.layout = Layout(
+            Field('name'),
+            Field('description'),
+        )
+```
+
+### Custom Form Attributes
+
+```python forms.py
+class FormWithAttributes(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'custom-form'
+        self.helper.form_class = 'form-horizontal'
+        self.helper.form_method = 'post'
+        self.helper.form_action = '/custom-action/'
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Unfold Widgets">
+    Always use Unfold widgets with Crispy Forms for consistent styling:
+    
+    ```python
+    class Meta:
+        widgets = {
+            'title': UnfoldAdminTextInputWidget(),
+            'description': UnfoldAdminTextareaWidget(),
+        }
+    ```
+  </Accordion>
+  
+  <Accordion title="Disable Form Tag in Admin">
+    Always set `form_tag = False` when using Crispy Forms in admin:
+    
+    ```python
+    self.helper.form_tag = False
+    ```
+  </Accordion>
+  
+  <Accordion title="Maintain Accessibility">
+    Ensure your custom layouts maintain proper ARIA attributes and labels:
+    
+    ```python
+    Field('email', aria_describedby='email-help')
+    ```
+  </Accordion>
+  
+  <Accordion title="Test Responsive Layouts">
+    Test your multi-column layouts on different screen sizes:
+    
+    ```python
+    Column(Field('name'), css_class='col-12 col-md-6')
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Limitations
+
+<Warning>
+Be aware of these limitations when using Crispy Forms with Unfold:
+
+1. **Template Pack Compatibility**: Some template packs may conflict with Unfold's styling
+2. **Widget Override**: Crispy Forms may override some Unfold widget features
+3. **JavaScript Conflicts**: Custom Crispy Forms JavaScript may conflict with Alpine.js
+4. **Inline Formsets**: Limited support for complex inline formset layouts
+</Warning>
+
+## Alternative: Use Unfold's Built-in Features
+
+In most cases, Unfold's built-in features are sufficient:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    # Use fieldsets for grouping
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'sku', 'price')
+        }),
+        ('Description', {
+            'fields': ('short_description', 'full_description')
+        }),
+    )
+    
+    # Use inlines for related objects
+    inlines = [VariantInline, ImageInline]
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Forms Overview" icon="forms" href="/forms/overview">
+    Back to forms system overview
+  </Card>
+  <Card title="Custom Widgets" icon="palette" href="/forms/widgets">
+    Explore all available widgets
+  </Card>
+</CardGroup>

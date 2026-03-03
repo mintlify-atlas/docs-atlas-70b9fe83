@@ -1,0 +1,329 @@
+---
+title: List Actions
+description: Create custom actions for Django admin changelist views with icons, variants, and permissions
+---
+
+List actions appear at the top of your changelist view and allow you to perform operations that affect multiple objects or the entire list. They're ideal for bulk operations, exports, or navigating to related views.
+
+## Configuration
+
+List actions are configured using the `actions_list` attribute in your `ModelAdmin` class:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_list = [
+        "export_articles",
+        "generate_report",
+        "bulk_publish",
+    ]
+```
+
+## Basic List Action
+
+A list action receives the `request` object as its only parameter:
+
+```python
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from unfold.decorators import action
+
+@action(description="Export All Articles")
+def export_articles(self, request):
+    # Access queryset through model
+    articles = self.model.objects.all()
+    
+    # Perform export logic
+    # ...
+    
+    messages.success(request, f"Exported {articles.count()} articles")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+<Note>
+  List actions should return an `HttpResponse`, typically a redirect back to the changelist or to a download view.
+</Note>
+
+## Styled Actions with Icons
+
+Enhance your actions with visual styling using icons and variants:
+
+```python
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Publish All",
+    icon="upload",
+    variant=ActionVariant.SUCCESS
+)
+def bulk_publish(self, request):
+    count = self.model.objects.filter(status="draft").update(status="published")
+    messages.success(request, f"Published {count} articles")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+@action(
+    description="Delete Drafts",
+    icon="trash",
+    variant=ActionVariant.DANGER
+)
+def delete_drafts(self, request):
+    count, _ = self.model.objects.filter(status="draft").delete()
+    messages.warning(request, f"Deleted {count} draft articles")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Dropdown Groups
+
+Organize multiple related actions into dropdown menus:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_list = [
+        "quick_publish",
+        {
+            "title": "Export Options",
+            "icon": "download",
+            "variant": ActionVariant.PRIMARY,
+            "items": [
+                "export_csv",
+                "export_json",
+                "export_pdf",
+            ],
+        },
+        {
+            "title": "Bulk Operations",
+            "icon": "gear",
+            "items": [
+                "bulk_archive",
+                "bulk_delete",
+                "bulk_restore",
+            ],
+        },
+    ]
+
+    @action(description="Quick Publish All")
+    def quick_publish(self, request):
+        pass
+
+    @action(description="CSV Export", icon="file-csv")
+    def export_csv(self, request):
+        pass
+
+    @action(description="JSON Export", icon="file-code")
+    def export_json(self, request):
+        pass
+
+    @action(description="PDF Export", icon="file-pdf")
+    def export_pdf(self, request):
+        pass
+```
+
+<Tip>
+  Dropdown items can have their own icons and variants, which will be displayed in the dropdown menu.
+</Tip>
+
+## Permission-Protected Actions
+
+Restrict actions to users with specific permissions:
+
+```python
+@action(
+    description="Bulk Delete",
+    permissions=["myapp.delete_article"],
+    icon="trash",
+    variant=ActionVariant.DANGER
+)
+def bulk_delete(self, request):
+    # Only users with delete_article permission can execute this
+    pass
+
+@action(
+    description="Publish to Production",
+    permissions=["publish_production"],
+    icon="rocket",
+    variant=ActionVariant.WARNING
+)
+def publish_production(self, request):
+    # Uses custom permission method
+    pass
+
+def has_publish_production_permission(self, request):
+    # Custom permission logic
+    return request.user.is_superuser or request.user.groups.filter(name="Publishers").exists()
+```
+
+## File Export Example
+
+Create a complete CSV export action:
+
+```python
+import csv
+from django.http import HttpResponse
+from django.utils import timezone
+from unfold.decorators import action
+
+@action(
+    description="Export to CSV",
+    icon="download",
+    variant=ActionVariant.INFO
+)
+def export_csv(self, request):
+    # Create response with CSV content type
+    response = HttpResponse(content_type="text/csv")
+    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+    response["Content-Disposition"] = f'attachment; filename="articles_{timestamp}.csv"'
+    
+    # Create CSV writer
+    writer = csv.writer(response)
+    writer.writerow(["ID", "Title", "Author", "Status", "Created"])
+    
+    # Write data
+    for article in self.model.objects.all():
+        writer.writerow([
+            article.id,
+            article.title,
+            article.author.username,
+            article.status,
+            article.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+        ])
+    
+    return response
+```
+
+## External Link Example
+
+Open external URLs with custom attributes:
+
+```python
+@action(
+    description="View Analytics",
+    icon="chart-line",
+    variant=ActionVariant.INFO,
+    attrs={"target": "_blank", "rel": "noopener noreferrer"},
+    url_path="analytics-dashboard"
+)
+def view_analytics(self, request):
+    # Redirect to external analytics dashboard
+    analytics_url = f"https://analytics.example.com/dashboard?app={self.model._meta.app_label}"
+    return redirect(analytics_url)
+```
+
+<Note>
+  When using `attrs` with `target="_blank"`, always include `rel="noopener noreferrer"` for security.
+</Note>
+
+## Working with Querysets
+
+Access the current queryset with filters applied:
+
+```python
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from unfold.decorators import action
+
+@action(
+    description="Process Filtered Items",
+    icon="cog",
+    variant=ActionVariant.PRIMARY
+)
+def process_filtered(self, request):
+    # Get the changelist to access filtered queryset
+    from unfold.views import ChangeList
+    
+    cl = ChangeList(
+        request, self.model, self.list_display,
+        self.list_display_links, self.list_filter,
+        self.date_hierarchy, self.search_fields,
+        self.list_select_related, self.list_per_page,
+        self.list_max_show_all, self.list_editable, self, self.sortable_by,
+    )
+    
+    # Process only filtered items
+    queryset = cl.get_queryset(request)
+    count = queryset.count()
+    
+    # Process items...
+    
+    messages.success(request, f"Processed {count} filtered items")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always redirect after action" icon="arrow-right">
+    List actions should always return an `HttpResponse`, typically a redirect to avoid confusion:
+    ```python
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+    ```
+  </Accordion>
+
+  <Accordion title="Provide user feedback" icon="comment">
+    Use Django's messages framework to inform users of action results:
+    ```python
+    messages.success(request, "Operation completed successfully")
+    messages.warning(request, "Some items were skipped")
+    messages.error(request, "Operation failed")
+    ```
+  </Accordion>
+
+  <Accordion title="Use appropriate variants" icon="palette">
+    Choose variants that match the action's nature:
+    - `SUCCESS` for positive actions (publish, approve)
+    - `DANGER` for destructive actions (delete, archive)
+    - `WARNING` for risky actions (deploy, sync)
+    - `INFO` for informational actions (export, view)
+    - `PRIMARY` for main actions
+    - `DEFAULT` for standard actions
+  </Accordion>
+
+  <Accordion title="Group related actions" icon="folder">
+    Use dropdown groups to keep the interface clean:
+    ```python
+    actions_list = [
+        "primary_action",
+        {
+            "title": "More Actions",
+            "items": ["secondary_1", "secondary_2"],
+        },
+    ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Hiding Default Actions
+
+If you want to completely replace Django's default bulk actions:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_list_hide_default = True
+    actions_list = [
+        "custom_bulk_action",
+    ]
+```
+
+<Warning>
+  When hiding default actions, ensure your custom actions provide all necessary functionality.
+</Warning>
+
+## Related Actions
+
+<CardGroup cols={2}>
+  <Card title="Row Actions" icon="table-rows" href="/actions/row-actions">
+    Add actions to individual rows in your list view
+  </Card>
+  <Card title="Detail Actions" icon="file-pen" href="/actions/detail-actions">
+    Create actions for object detail views
+  </Card>
+</CardGroup>

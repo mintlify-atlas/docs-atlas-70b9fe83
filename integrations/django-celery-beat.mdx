@@ -1,0 +1,620 @@
+---
+title: Django Celery Beat
+description: Schedule and manage periodic tasks in Django Unfold with django-celery-beat for automated background job execution
+---
+
+## Overview
+
+Django Celery Beat is a scheduler for Celery periodic tasks. While the package doesn't require special styling for most components, its admin classes need customization to maintain consistency with Unfold's design system.
+
+<Info>
+  Celery Beat allows you to schedule tasks to run at regular intervals, such as sending daily reports, cleaning up old data, or synchronizing with external APIs.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-celery-beat">
+    Install Celery and django-celery-beat:
+    
+    ```bash
+    pip install celery django-celery-beat
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add django-celery-beat to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "django.contrib.admin",
+        # ...
+        
+        "django_celery_beat",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Configure Celery">
+    Set up Celery in your project:
+    
+    ```python celery.py
+    import os
+    from celery import Celery
+    
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "myproject.settings")
+    
+    app = Celery("myproject")
+    app.config_from_object("django.conf:settings", namespace="CELERY")
+    app.autodiscover_tasks()
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Create database tables for schedules:
+    
+    ```bash
+    python manage.py migrate django_celery_beat
+    ```
+  </Step>
+</Steps>
+
+## Admin Configuration
+
+<Warning>
+  Django Celery Beat's default admin classes don't inherit from Unfold's `ModelAdmin`, causing design inconsistencies. You must override them manually.
+</Warning>
+
+### Override Admin Classes
+
+Unregister default admin and register with Unfold styling:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget
+
+from django_celery_beat.models import (
+    ClockedSchedule,
+    CrontabSchedule,
+    IntervalSchedule,
+    PeriodicTask,
+    SolarSchedule,
+)
+from django_celery_beat.admin import ClockedScheduleAdmin as BaseClockedScheduleAdmin
+from django_celery_beat.admin import CrontabScheduleAdmin as BaseCrontabScheduleAdmin
+from django_celery_beat.admin import PeriodicTaskAdmin as BasePeriodicTaskAdmin
+from django_celery_beat.admin import PeriodicTaskForm, TaskSelectWidget
+
+# Unregister default admin classes
+admin.site.unregister(PeriodicTask)
+admin.site.unregister(IntervalSchedule)
+admin.site.unregister(CrontabSchedule)
+admin.site.unregister(SolarSchedule)
+admin.site.unregister(ClockedSchedule)
+
+
+# Custom widget for task selection
+class UnfoldTaskSelectWidget(UnfoldAdminSelectWidget, TaskSelectWidget):
+    pass
+
+
+# Custom form with Unfold widgets
+class UnfoldPeriodicTaskForm(PeriodicTaskForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["task"].widget = UnfoldAdminTextInputWidget()
+        self.fields["regtask"].widget = UnfoldTaskSelectWidget()
+
+
+# Register with Unfold styling
+@admin.register(PeriodicTask)
+class PeriodicTaskAdmin(BasePeriodicTaskAdmin, ModelAdmin):
+    form = UnfoldPeriodicTaskForm
+
+
+@admin.register(IntervalSchedule)
+class IntervalScheduleAdmin(ModelAdmin):
+    list_display = ["__str__", "every", "period"]
+
+
+@admin.register(CrontabSchedule)
+class CrontabScheduleAdmin(BaseCrontabScheduleAdmin, ModelAdmin):
+    list_display = ["__str__", "minute", "hour", "day_of_week", "day_of_month", "month_of_year"]
+
+
+@admin.register(SolarSchedule)
+class SolarScheduleAdmin(ModelAdmin):
+    list_display = ["__str__", "event", "latitude", "longitude"]
+
+
+@admin.register(ClockedSchedule)
+class ClockedScheduleAdmin(BaseClockedScheduleAdmin, ModelAdmin):
+    list_display = ["__str__", "clocked_time"]
+```
+
+<Tip>
+  This configuration ensures all Celery Beat admin pages match Unfold's design while maintaining full functionality.
+</Tip>
+
+## Schedule Types
+
+Celery Beat supports multiple schedule types:
+
+### Interval Schedule
+
+Run tasks at fixed intervals:
+
+```python
+# Via admin or code
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
+
+# Create an interval (every 10 minutes)
+schedule, created = IntervalSchedule.objects.get_or_create(
+    every=10,
+    period=IntervalSchedule.MINUTES,
+)
+
+# Create periodic task
+PeriodicTask.objects.create(
+    interval=schedule,
+    name="Import data every 10 minutes",
+    task="myapp.tasks.import_data",
+)
+```
+
+### Crontab Schedule
+
+Use cron-like expressions:
+
+```python
+from django_celery_beat.models import CrontabSchedule
+
+# Every day at 2:30 AM
+schedule, created = CrontabSchedule.objects.get_or_create(
+    minute="30",
+    hour="2",
+    day_of_week="*",
+    day_of_month="*",
+    month_of_year="*",
+)
+
+PeriodicTask.objects.create(
+    crontab=schedule,
+    name="Daily backup at 2:30 AM",
+    task="myapp.tasks.backup_database",
+)
+```
+
+### Clocked Schedule
+
+Run once at a specific time:
+
+```python
+from django_celery_beat.models import ClockedSchedule
+from django.utils import timezone
+from datetime import timedelta
+
+# Run once, 1 hour from now
+clocked_time = timezone.now() + timedelta(hours=1)
+schedule = ClockedSchedule.objects.create(
+    clocked_time=clocked_time
+)
+
+PeriodicTask.objects.create(
+    clocked=schedule,
+    name="One-time task",
+    task="myapp.tasks.send_notification",
+    one_off=True,
+)
+```
+
+### Solar Schedule
+
+Schedule based on sunrise/sunset:
+
+```python
+from django_celery_beat.models import SolarSchedule
+
+# At sunset in New York
+schedule, created = SolarSchedule.objects.get_or_create(
+    event="sunset",
+    latitude=40.7128,
+    longitude=-74.0060,
+)
+
+PeriodicTask.objects.create(
+    solar=schedule,
+    name="Evening report at sunset",
+    task="myapp.tasks.evening_report",
+)
+```
+
+## Creating Tasks
+
+### Define Celery Task
+
+```python tasks.py
+from celery import shared_task
+from django.core.mail import send_mail
+import logging
+
+logger = logging.getLogger(__name__)
+
+@shared_task
+def send_daily_report():
+    """Send daily report to admins."""
+    logger.info("Generating daily report")
+    
+    # Generate report
+    report = generate_report()
+    
+    # Send email
+    send_mail(
+        "Daily Report",
+        report,
+        "noreply@example.com",
+        ["admin@example.com"],
+    )
+    
+    logger.info("Daily report sent")
+    return "Report sent successfully"
+
+
+@shared_task
+def cleanup_old_data():
+    """Delete records older than 30 days."""
+    from datetime import timedelta
+    from django.utils import timezone
+    from .models import LogEntry
+    
+    cutoff_date = timezone.now() - timedelta(days=30)
+    deleted_count = LogEntry.objects.filter(
+        created_at__lt=cutoff_date
+    ).delete()[0]
+    
+    logger.info(f"Deleted {deleted_count} old log entries")
+    return f"Deleted {deleted_count} records"
+```
+
+### Schedule via Admin
+
+<Steps>
+  <Step title="Create schedule">
+    Go to **Periodic Tasks** → **Interval schedules** and create a new interval (e.g., every 1 day)
+  </Step>
+  
+  <Step title="Create periodic task">
+    Go to **Periodic Tasks** → **Periodic tasks** and click **Add periodic task**
+  </Step>
+  
+  <Step title="Configure task">
+    - **Name**: Daily Report
+    - **Task**: `myapp.tasks.send_daily_report`
+    - **Interval**: Select the interval you created
+    - **Enabled**: Check to activate
+  </Step>
+</Steps>
+
+## Task Arguments
+
+### Positional Arguments
+
+```python
+PeriodicTask.objects.create(
+    crontab=schedule,
+    name="Process user data",
+    task="myapp.tasks.process_user",
+    args=json.dumps([123, "premium"]),  # user_id, tier
+)
+```
+
+```python tasks.py
+@shared_task
+def process_user(user_id, tier):
+    # Process specific user
+    pass
+```
+
+### Keyword Arguments
+
+```python
+import json
+
+PeriodicTask.objects.create(
+    interval=schedule,
+    name="Send newsletter",
+    task="myapp.tasks.send_newsletter",
+    kwargs=json.dumps({
+        "template": "weekly",
+        "segment": "active_users",
+    }),
+)
+```
+
+```python tasks.py
+@shared_task
+def send_newsletter(template, segment):
+    # Send newsletter
+    pass
+```
+
+## Advanced Features
+
+### Task Expiration
+
+Set task expiration time:
+
+```python
+from datetime import timedelta
+
+PeriodicTask.objects.create(
+    interval=schedule,
+    name="Time-sensitive task",
+    task="myapp.tasks.process_data",
+    expires=timezone.now() + timedelta(hours=24),
+)
+```
+
+### Task Priority
+
+```python
+PeriodicTask.objects.create(
+    interval=schedule,
+    name="High priority task",
+    task="myapp.tasks.urgent_task",
+    priority=9,  # 0-9, higher is more important
+)
+```
+
+### Task Queues
+
+Route tasks to specific queues:
+
+```python
+PeriodicTask.objects.create(
+    interval=schedule,
+    name="Heavy processing",
+    task="myapp.tasks.heavy_computation",
+    queue="high_memory",  # Use specific queue
+)
+```
+
+### Max Retries
+
+```python tasks.py
+@shared_task(bind=True, max_retries=3)
+def unreliable_task(self):
+    try:
+        # Attempt task
+        risky_operation()
+    except Exception as exc:
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+```
+
+## Monitoring Tasks
+
+### Task Results
+
+Store task results:
+
+```python settings.py
+# Store results in database
+CELERY_RESULT_BACKEND = "django-db"
+
+# Or use Redis
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+```
+
+### Task History
+
+Install django-celery-results:
+
+```bash
+pip install django-celery-results
+```
+
+```python settings.py
+INSTALLED_APPS = [
+    # ...
+    "django_celery_results",
+]
+
+CELERY_RESULT_BACKEND = "django-db"
+CELERY_RESULT_EXTENDED = True
+```
+
+### Admin Integration
+
+Register results admin:
+
+```python admin.py
+from django_celery_results.models import TaskResult
+from django_celery_results.admin import TaskResultAdmin as BaseTaskResultAdmin
+
+admin.site.unregister(TaskResult)
+
+@admin.register(TaskResult)
+class TaskResultAdmin(BaseTaskResultAdmin, ModelAdmin):
+    list_display = ["task_id", "task_name", "status", "date_done"]
+    list_filter = ["status", "date_done"]
+    search_fields = ["task_id", "task_name"]
+```
+
+## Running Celery Beat
+
+### Start Worker
+
+```bash
+# Start Celery worker
+celery -A myproject worker --loglevel=info
+```
+
+### Start Beat Scheduler
+
+```bash
+# Start Celery beat scheduler
+celery -A myproject beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+```
+
+### Combined Command
+
+```bash
+# Run worker and beat together (development only)
+celery -A myproject worker --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
+```
+
+<Warning>
+  In production, run the worker and beat scheduler as separate processes for better reliability and scalability.
+</Warning>
+
+## Production Deployment
+
+### Supervisor Configuration
+
+```ini supervisord.conf
+[program:celery_worker]
+command=/path/to/venv/bin/celery -A myproject worker --loglevel=info
+directory=/path/to/project
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/celery/worker.log
+stderr_logfile=/var/log/celery/worker_error.log
+
+[program:celery_beat]
+command=/path/to/venv/bin/celery -A myproject beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+directory=/path/to/project
+user=www-data
+numprocs=1
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/celery/beat.log
+stderr_logfile=/var/log/celery/beat_error.log
+```
+
+### Systemd Service
+
+```ini /etc/systemd/system/celery-beat.service
+[Unit]
+Description=Celery Beat Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/path/to/project
+Environment="DJANGO_SETTINGS_MODULE=myproject.settings"
+ExecStart=/path/to/venv/bin/celery -A myproject beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Daily Reports">
+    Send automated reports every day:
+    
+    ```python
+    # Crontab: every day at 9 AM
+    schedule = CrontabSchedule.objects.create(
+        minute="0",
+        hour="9",
+        day_of_week="*",
+    )
+    
+    PeriodicTask.objects.create(
+        crontab=schedule,
+        name="Daily sales report",
+        task="myapp.tasks.send_sales_report",
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Cleanup">
+    Regularly clean up old data:
+    
+    ```python
+    # Interval: every week
+    schedule = IntervalSchedule.objects.create(
+        every=7,
+        period=IntervalSchedule.DAYS,
+    )
+    
+    PeriodicTask.objects.create(
+        interval=schedule,
+        name="Weekly data cleanup",
+        task="myapp.tasks.cleanup_old_data",
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="API Synchronization">
+    Sync with external APIs:
+    
+    ```python
+    # Interval: every 15 minutes
+    schedule = IntervalSchedule.objects.create(
+        every=15,
+        period=IntervalSchedule.MINUTES,
+    )
+    
+    PeriodicTask.objects.create(
+        interval=schedule,
+        name="Sync with CRM",
+        task="myapp.tasks.sync_crm_data",
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Cache Warming">
+    Pre-populate caches:
+    
+    ```python
+    # Crontab: every hour
+    schedule = CrontabSchedule.objects.create(
+        minute="0",
+        hour="*",
+    )
+    
+    PeriodicTask.objects.create(
+        crontab=schedule,
+        name="Warm cache",
+        task="myapp.tasks.warm_popular_pages",
+    )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Live Demo
+
+<Card 
+  title="View Celery Beat Admin" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/django_celery_beat/periodictask/"
+>
+  Explore periodic task scheduling with Unfold styling
+</Card>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Celery Documentation" icon="book" href="https://docs.celeryproject.org/">
+    Official Celery documentation
+  </Card>
+  
+  <Card title="Django Celery Beat" icon="book" href="https://django-celery-beat.readthedocs.io/">
+    Django Celery Beat documentation
+  </Card>
+</CardGroup>
+
+<Tip>
+  Test your periodic tasks thoroughly before deploying to production. Use `task.apply()` to run tasks manually during development.
+</Tip>

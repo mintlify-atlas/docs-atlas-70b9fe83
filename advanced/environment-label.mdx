@@ -1,0 +1,406 @@
+---
+title: Environment Labels
+description: Display environment indicators in Django Unfold admin interface. Show production, staging, or development environment labels with custom colors and text for enhanced admin safety.
+---
+
+# Environment Labels
+
+Environment labels provide a visual indicator of which environment (production, staging, development) you're currently working in. This feature helps prevent accidental changes to production data by clearly displaying the current environment in the admin interface.
+
+## Overview
+
+The environment label appears in the top-right corner of the admin header, making it immediately visible when navigating the admin interface. This is particularly useful when managing multiple environments.
+
+## Basic Configuration
+
+Configure environment labels using the `ENVIRONMENT` key in your Unfold settings.
+
+```python settings.py
+UNFOLD = {
+    "ENVIRONMENT": "app.utils.environment_callback",
+}
+```
+
+## Creating the Callback Function
+
+The callback function must return a list with two values:
+
+1. **Text** - The label text to display (e.g., "Production", "Staging")
+2. **Color variant** - The badge color: `"info"`, `"danger"`, `"warning"`, or `"success"`
+
+<Steps>
+  <Step title="Create the Callback">
+    Define a function that returns the environment configuration.
+
+    ```python utils.py
+    def environment_callback(request):
+        """
+        Return environment label configuration.
+        
+        Returns:
+            list: [label_text, color_variant]
+        """
+        return ["Production", "danger"]
+    ```
+  </Step>
+
+  <Step title="Register the Callback">
+    Add the callback path to your settings.
+
+    ```python settings.py
+    UNFOLD = {
+        "ENVIRONMENT": "app.utils.environment_callback",
+    }
+    ```
+  </Step>
+</Steps>
+
+## Color Variants
+
+<ResponseField name="info" type="string">
+  Blue badge - typically used for development or informational environments
+</ResponseField>
+
+<ResponseField name="success" type="string">
+  Green badge - typically used for testing or successfully deployed environments
+</ResponseField>
+
+<ResponseField name="warning" type="string">
+  Yellow/orange badge - typically used for staging or preview environments
+</ResponseField>
+
+<ResponseField name="danger" type="string">
+  Red badge - typically used for production environments to indicate caution
+</ResponseField>
+
+## Examples
+
+### Simple Environment Detection
+
+Detect environment based on Django's DEBUG setting:
+
+```python utils.py
+from django.conf import settings
+
+def environment_callback(request):
+    """
+    Show environment based on DEBUG setting.
+    """
+    if settings.DEBUG:
+        return ["Development", "info"]
+    else:
+        return ["Production", "danger"]
+```
+
+### Environment Variable Based
+
+Use environment variables to determine the current environment:
+
+```python utils.py
+import os
+
+def environment_callback(request):
+    """
+    Show environment based on DJANGO_ENV variable.
+    """
+    env = os.getenv('DJANGO_ENV', 'development').lower()
+    
+    environments = {
+        'production': ["Production", "danger"],
+        'staging': ["Staging", "warning"],
+        'testing': ["Testing", "success"],
+        'development': ["Development", "info"],
+    }
+    
+    return environments.get(env, ["Unknown", "info"])
+```
+
+### Domain-Based Detection
+
+Detect environment based on the request domain:
+
+```python utils.py
+def environment_callback(request):
+    """
+    Show environment based on domain name.
+    """
+    host = request.get_host().lower()
+    
+    if 'localhost' in host or '127.0.0.1' in host:
+        return ["Local Development", "info"]
+    elif 'staging' in host:
+        return ["Staging", "warning"]
+    elif 'test' in host:
+        return ["Testing", "success"]
+    else:
+        return ["Production", "danger"]
+```
+
+### Permission-Based Labels
+
+Show different labels based on user permissions:
+
+```python utils.py
+import os
+
+def environment_callback(request):
+    """
+    Show detailed environment info for superusers.
+    """
+    env = os.getenv('DJANGO_ENV', 'production').lower()
+    
+    # Superusers see the actual environment
+    if request.user.is_superuser:
+        environments = {
+            'production': ["Production", "danger"],
+            'staging': ["Staging", "warning"],
+            'development': ["Development", "info"],
+        }
+        return environments.get(env, ["Unknown", "info"])
+    
+    # Regular users just see a generic label
+    return ["Admin", "info"]
+```
+
+### Multi-Region Environments
+
+Indicate both environment and region:
+
+```python utils.py
+import os
+
+def environment_callback(request):
+    """
+    Show environment and region.
+    """
+    env = os.getenv('DJANGO_ENV', 'production')
+    region = os.getenv('REGION', 'us-east-1')
+    
+    label = f"{env.title()} ({region})"
+    
+    color_map = {
+        'production': 'danger',
+        'staging': 'warning',
+        'development': 'info',
+    }
+    
+    color = color_map.get(env.lower(), 'info')
+    
+    return [label, color]
+```
+
+### Dynamic Environment Info
+
+Include additional information like version or deployment time:
+
+```python utils.py
+import os
+from datetime import datetime
+
+def environment_callback(request):
+    """
+    Show environment with additional context.
+    """
+    env = os.getenv('DJANGO_ENV', 'production').lower()
+    version = os.getenv('APP_VERSION', 'unknown')
+    
+    # For production, show version
+    if env == 'production':
+        return [f"Production v{version}", "danger"]
+    elif env == 'staging':
+        return [f"Staging v{version}", "warning"]
+    else:
+        return ["Development", "info"]
+```
+
+## Browser Title Prefix
+
+You can also add an environment prefix to the browser title to make it easier to identify environments when multiple admin tabs are open.
+
+```python settings.py
+UNFOLD = {
+    "ENVIRONMENT": "app.utils.environment_callback",
+    "ENVIRONMENT_TITLE_PREFIX": "app.utils.environment_title_prefix",
+}
+```
+
+```python utils.py
+import os
+
+def environment_callback(request):
+    env = os.getenv('DJANGO_ENV', 'production').lower()
+    
+    environments = {
+        'production': ["Production", "danger"],
+        'staging': ["Staging", "warning"],
+        'development': ["Development", "info"],
+    }
+    
+    return environments.get(env, ["Unknown", "info"])
+
+def environment_title_prefix(request):
+    """
+    Add environment prefix to browser title.
+    
+    Returns:
+        str: Prefix to add to page titles
+    """
+    env = os.getenv('DJANGO_ENV', 'production').upper()
+    
+    # Only add prefix for non-production environments
+    if env != 'PRODUCTION':
+        return f"[{env}] "
+    
+    return ""
+```
+
+With this configuration:
+- Production: "My Admin | Django Admin"
+- Staging: "[STAGING] My Admin | Django Admin"
+- Development: "[DEVELOPMENT] My Admin | Django Admin"
+
+## Environment-Specific Settings
+
+Combine environment labels with environment-specific configurations:
+
+```python settings.py
+import os
+
+# Base configuration
+UNFOLD = {
+    "ENVIRONMENT": "app.utils.environment_callback",
+    "ENVIRONMENT_TITLE_PREFIX": "app.utils.environment_title_prefix",
+}
+
+# Environment-specific overrides
+if os.getenv('DJANGO_ENV') == 'production':
+    UNFOLD.update({
+        # Disable certain features in production
+        "SHOW_HISTORY": False,
+        "COMMAND": {
+            "show_history": False,
+        },
+    })
+elif os.getenv('DJANGO_ENV') == 'development':
+    UNFOLD.update({
+        # Enable all features in development
+        "SHOW_HISTORY": True,
+        "COMMAND": {
+            "show_history": True,
+            "search_models": True,
+        },
+    })
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Consistent Color Coding">
+    Maintain consistent color associations across your environments:
+    - Production: `danger` (red) - signals caution
+    - Staging: `warning` (yellow) - signals testing
+    - Development: `info` (blue) - signals safe environment
+    - Testing: `success` (green) - signals automated testing
+  </Accordion>
+
+  <Accordion title="Make Production Stand Out">
+    Always make production environments visually distinct with the `danger` variant to prevent accidental modifications.
+
+    ```python
+    # Good - production is clearly marked
+    if env == 'production':
+        return ["⚠️ PRODUCTION", "danger"]
+    ```
+  </Accordion>
+
+  <Accordion title="Use Environment Variables">
+    Store environment configuration in environment variables rather than hardcoding:
+
+    ```python
+    # Good - uses environment variable
+    env = os.getenv('DJANGO_ENV', 'production')
+    
+    # Bad - hardcoded
+    env = 'production'
+    ```
+  </Accordion>
+
+  <Accordion title="Include Helpful Information">
+    For non-production environments, include helpful details like version numbers or deployment times:
+
+    ```python
+    if env == 'staging':
+        version = os.getenv('APP_VERSION', 'unknown')
+        return [f"Staging v{version}", "warning"]
+    ```
+  </Accordion>
+
+  <Accordion title="Test Your Callback">
+    Always test your environment callback in different environments to ensure it works correctly:
+
+    ```python
+    # Add logging for debugging
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    def environment_callback(request):
+        env = os.getenv('DJANGO_ENV', 'production')
+        logger.info(f"Environment detected: {env}")
+        # ... rest of code
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Label Not Appearing">
+    If the environment label doesn't appear:
+
+    1. Verify the callback is properly configured in settings
+    2. Check that the callback function returns a list with exactly two items
+    3. Ensure the callback function doesn't raise exceptions
+    4. Verify the path to the callback function is correct
+  </Accordion>
+
+  <Accordion title="Wrong Color Displayed">
+    If the badge color is incorrect:
+
+    1. Check that you're returning a valid color variant
+    2. Valid variants are: `"info"`, `"success"`, `"warning"`, `"danger"`
+    3. Color variant names are case-sensitive
+  </Accordion>
+
+  <Accordion title="Callback Errors">
+    If your callback raises errors:
+
+    ```python
+    def environment_callback(request):
+        try:
+            # Your logic here
+            env = os.getenv('DJANGO_ENV', 'production')
+            return [env.title(), "info"]
+        except Exception as e:
+            # Fallback to safe default
+            logger.error(f"Environment callback error: {e}")
+            return ["Production", "danger"]  # Safe default
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Settings" icon="gear" href="/docs/configuration/settings">
+    View all available configuration options
+  </Card>
+  <Card title="Custom Pages" icon="file" href="/docs/advanced/custom-pages">
+    Create custom admin pages
+  </Card>
+  <Card title="Sidebar Navigation" icon="bars" href="/docs/advanced/sidebar-navigation">
+    Configure sidebar navigation
+  </Card>
+  <Card title="Site Dropdown" icon="bars" href="/docs/configuration/site-dropdown">
+    Add a site dropdown menu
+  </Card>
+</CardGroup>

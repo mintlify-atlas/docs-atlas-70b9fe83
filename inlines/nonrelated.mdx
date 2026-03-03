@@ -1,0 +1,458 @@
+---
+title: "Nonrelated Inlines"
+description: "Display and manage objects that don't have direct foreign key relationships"
+---
+
+Nonrelated inlines allow you to display and edit objects in an inline format even when they don't have a traditional foreign key relationship to the parent model. This is useful for many-to-many relationships, complex queries, or custom associations.
+
+## Overview
+
+Django's built-in inlines require a foreign key relationship between the parent and child models. Nonrelated inlines remove this restriction, allowing you to display any queryset of objects as an inline formset.
+
+<Frame>
+  <img src="/images/nonrelated-inline-example.png" alt="Nonrelated inline showing custom associations" />
+</Frame>
+
+## Installation
+
+Nonrelated inlines are available in the `unfold.contrib.inlines` module:
+
+```python admin.py
+from unfold.contrib.inlines.admin import (
+    NonrelatedStackedInline,
+    NonrelatedTabularInline,
+)
+```
+
+## Basic Setup
+
+To create a nonrelated inline, inherit from `NonrelatedTabularInline` or `NonrelatedStackedInline` and implement two required methods:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.inlines.admin import NonrelatedTabularInline
+from .models import Author, Book
+
+class AuthorBooksInline(NonrelatedTabularInline):
+    model = Book
+    extra = 0
+    fields = ['title', 'isbn', 'published_date']
+    
+    def get_form_queryset(self, obj):
+        """Return the queryset of books for this author"""
+        if obj:
+            return Book.objects.filter(authors__in=[obj])
+        return Book.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        """Associate a new book with the author"""
+        instance.save()
+        instance.authors.add(parent)
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [AuthorBooksInline]
+```
+
+<Info>
+  The two required methods are `get_form_queryset()` and `save_new_instance()`. These define how to fetch related objects and how to associate new objects with the parent.
+</Info>
+
+## Required Methods
+
+### get_form_queryset
+
+Returns the queryset of objects to display in the inline:
+
+```python admin.py
+def get_form_queryset(self, obj):
+    """
+    Args:
+        obj: The parent model instance
+    
+    Returns:
+        QuerySet: Objects to display in the inline
+    """
+    if obj is None:
+        return self.model.objects.none()
+    
+    # Your custom logic here
+    return self.model.objects.filter(your_filter=obj)
+```
+
+<ParamField path="obj" type="Model | None">
+  The parent model instance. Will be `None` when adding a new parent object.
+</ParamField>
+
+<Warning>
+  Always check if `obj` is `None` and return an empty queryset in that case to avoid errors on the add form.
+</Warning>
+
+### save_new_instance
+
+Defines how to associate a newly created instance with the parent:
+
+```python admin.py
+def save_new_instance(self, parent, instance):
+    """
+    Args:
+        parent: The parent model instance
+        instance: The new child model instance to associate
+    """
+    # Save the instance first if needed
+    instance.save()
+    
+    # Then establish the relationship
+    # Examples:
+    # - Many-to-many: instance.parents.add(parent)
+    # - Custom field: instance.parent_id = parent.id; instance.save()
+    # - Through model: ThroughModel.objects.create(parent=parent, child=instance)
+```
+
+<ParamField path="parent" type="Model">
+  The parent model instance to associate with.
+</ParamField>
+
+<ParamField path="instance" type="Model">
+  The newly created child model instance.
+</ParamField>
+
+## Common Use Cases
+
+### Many-to-Many Relationships
+
+Display and manage many-to-many relationships:
+
+```python models.py
+from django.db import models
+
+class Project(models.Model):
+    name = models.CharField(max_length=200)
+    members = models.ManyToManyField('User', related_name='projects')
+
+class User(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+```
+
+```python admin.py
+from unfold.contrib.inlines.admin import NonrelatedTabularInline
+
+class ProjectMembersInline(NonrelatedTabularInline):
+    model = User
+    extra = 1
+    fields = ['name', 'email']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.members.all()
+        return User.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.save()
+        parent.members.add(instance)
+
+@admin.register(Project)
+class ProjectAdmin(ModelAdmin):
+    inlines = [ProjectMembersInline]
+```
+
+### Through Model Relationships
+
+Manage relationships with additional data:
+
+```python models.py
+class Course(models.Model):
+    name = models.CharField(max_length=200)
+
+class Student(models.Model):
+    name = models.CharField(max_length=100)
+
+class Enrollment(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    enrolled_date = models.DateField(auto_now_add=True)
+    grade = models.CharField(max_length=2, blank=True)
+```
+
+```python admin.py
+class EnrollmentInline(NonrelatedTabularInline):
+    model = Enrollment
+    extra = 1
+    fields = ['student', 'enrolled_date', 'grade']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return Enrollment.objects.filter(course=obj)
+        return Enrollment.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.course = parent
+        instance.save()
+
+@admin.register(Course)
+class CourseAdmin(ModelAdmin):
+    inlines = [EnrollmentInline]
+```
+
+### Custom Query Relationships
+
+Display objects based on complex queries:
+
+```python models.py
+class Region(models.Model):
+    name = models.CharField(max_length=100)
+    country_code = models.CharField(max_length=2)
+
+class Store(models.Model):
+    name = models.CharField(max_length=200)
+    country_code = models.CharField(max_length=2)
+    city = models.CharField(max_length=100)
+```
+
+```python admin.py
+class RegionStoresInline(NonrelatedTabularInline):
+    model = Store
+    extra = 0
+    fields = ['name', 'city']
+    can_delete = False  # Prevent deletion from this inline
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            # Show all stores in the same country
+            return Store.objects.filter(country_code=obj.country_code)
+        return Store.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        # Set the country code from the region
+        instance.country_code = parent.country_code
+        instance.save()
+    
+    def has_change_permission(self, request, obj=None):
+        # Make the inline read-only
+        return False
+
+@admin.register(Region)
+class RegionAdmin(ModelAdmin):
+    inlines = [RegionStoresInline]
+```
+
+## Stacked Nonrelated Inlines
+
+Use `NonrelatedStackedInline` for more detailed forms:
+
+```python admin.py
+from unfold.contrib.inlines.admin import NonrelatedStackedInline
+
+class DetailedMemberInline(NonrelatedStackedInline):
+    model = User
+    extra = 0
+    
+    fieldsets = [
+        ('Personal Information', {
+            'fields': ['name', 'email', 'phone']
+        }),
+        ('Role & Permissions', {
+            'fields': ['role', 'permissions']
+        }),
+    ]
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.members.all()
+        return User.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.save()
+        parent.members.add(instance)
+
+@admin.register(Project)
+class ProjectAdmin(ModelAdmin):
+    inlines = [DetailedMemberInline]
+```
+
+## Combining with Other Features
+
+### Nonrelated + Pagination
+
+```python admin.py
+class TeamMembersInline(NonrelatedTabularInline):
+    model = User
+    extra = 0
+    per_page = 10  # Enable pagination
+    fields = ['name', 'email', 'role']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.members.all().select_related('profile')
+        return User.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.save()
+        parent.members.add(instance)
+```
+
+### Nonrelated + Tabs
+
+```python admin.py
+class CurrentMembersInline(NonrelatedTabularInline):
+    model = User
+    extra = 0
+    tab = True  # Display in tab
+    fields = ['name', 'email']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.members.filter(is_active=True)
+        return User.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.save()
+        parent.members.add(instance)
+
+class PastMembersInline(NonrelatedTabularInline):
+    model = User
+    extra = 0
+    tab = True
+    can_delete = False
+    fields = ['name', 'email', 'left_date']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.members.filter(is_active=False)
+        return User.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        pass  # Don't allow adding to past members
+    
+    def has_add_permission(self, request, obj=None):
+        return False
+
+@admin.register(Team)
+class TeamAdmin(ModelAdmin):
+    inlines = [CurrentMembersInline, PastMembersInline]
+```
+
+## Permissions
+
+Control permissions for nonrelated inlines:
+
+```python admin.py
+class RestrictedInline(NonrelatedTabularInline):
+    model = SensitiveData
+    extra = 0
+    fields = ['field1', 'field2']
+    
+    def get_form_queryset(self, obj):
+        if obj:
+            return SensitiveData.objects.filter(parent=obj)
+        return SensitiveData.objects.none()
+    
+    def save_new_instance(self, parent, instance):
+        instance.parent = parent
+        instance.save()
+    
+    def has_add_permission(self, request, obj=None):
+        # Only superusers can add
+        return request.user.is_superuser
+    
+    def has_change_permission(self, request, obj=None):
+        # Only superusers can edit
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        # Nobody can delete
+        return False
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always validate obj in get_form_queryset" icon="shield-check">
+    Check if the parent object exists before querying:
+    
+    ```python
+    def get_form_queryset(self, obj):
+        if obj is None:
+            return self.model.objects.none()
+        return self.model.objects.filter(parent=obj)
+    ```
+  </Accordion>
+  
+  <Accordion title="Optimize queries" icon="bolt">
+    Use `select_related()` and `prefetch_related()` to reduce queries:
+    
+    ```python
+    def get_form_queryset(self, obj):
+        if obj:
+            return obj.related.select_related(
+                'category'
+            ).prefetch_related('tags')
+        return self.model.objects.none()
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle save errors gracefully" icon="triangle-exclamation">
+    Wrap save operations in try-except blocks:
+    
+    ```python
+    def save_new_instance(self, parent, instance):
+        try:
+            instance.save()
+            parent.related.add(instance)
+        except Exception as e:
+            # Log error or handle appropriately
+            raise
+    ```
+  </Accordion>
+  
+  <Accordion title="Consider read-only inlines" icon="eye">
+    For display-only use cases, disable editing:
+    
+    ```python
+    class ReadOnlyInline(NonrelatedTabularInline):
+        can_delete = False
+        extra = 0
+        
+        def has_add_permission(self, request, obj=None):
+            return False
+        
+        def has_change_permission(self, request, obj=None):
+            return False
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+<ParamField path="formset" type="type" default="NonrelatedInlineModelFormSet">
+  The formset class used for nonrelated inlines. Automatically set to `NonrelatedInlineModelFormSet`.
+</ParamField>
+
+<ParamField path="checks_class" type="type" default="NonrelatedModelAdminChecks">
+  Custom checks class that validates nonrelated inline configuration.
+</ParamField>
+
+The nonrelated inline system uses:
+
+- `unfold.contrib.inlines.forms.NonrelatedInlineModelFormSet` - Custom formset
+- `unfold.contrib.inlines.forms.nonrelated_inline_formset_factory` - Factory function
+- `unfold.contrib.inlines.checks.NonrelatedModelAdminChecks` - Validation checks
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inlines Overview" icon="layer-group" href="/inlines/overview">
+    Learn about inline basics
+  </Card>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize inlines with tabs
+  </Card>
+  <Card title="Paginated Inlines" icon="page" href="/inlines/paginated">
+    Add pagination to inlines
+  </Card>
+  <Card title="Sortable Inlines" icon="arrow-down-arrow-up" href="/inlines/sortable">
+    Enable drag-and-drop ordering
+  </Card>
+</CardGroup>

@@ -1,0 +1,511 @@
+---
+title: Custom Pages
+description: Create custom admin pages in Django Unfold with custom views, templates, URLs, permissions, and breadcrumbs. Extend your Django admin interface with fully integrated custom functionality.
+---
+
+# Custom Pages
+
+Django Unfold allows you to create custom pages that seamlessly integrate with the admin interface. Build custom dashboards, reports, tools, or any other functionality while maintaining the Unfold UI and navigation.
+
+## Basic Implementation
+
+Create custom pages using Django's class-based views combined with Unfold's `UnfoldModelAdminViewMixin`.
+
+<Steps>
+  <Step title="Create the View">
+    Define a class-based view that inherits from `UnfoldModelAdminViewMixin`.
+
+    ```python admin.py
+    from django.views.generic import TemplateView
+    from unfold.admin import ModelAdmin
+    from unfold.views import UnfoldModelAdminViewMixin
+    from .models import MyModel
+
+    class MyCustomView(UnfoldModelAdminViewMixin, TemplateView):
+        title = "Custom Page Title"  # Required: page header title
+        permission_required = ()     # Required: tuple of permissions
+        template_name = "admin/custom_page.html"
+    ```
+  </Step>
+
+  <Step title="Register the URL">
+    Add the view to your ModelAdmin's URL configuration.
+
+    ```python admin.py
+    from django.contrib import admin
+    from django.urls import path
+
+    @admin.register(MyModel)
+    class MyModelAdmin(ModelAdmin):
+        def get_urls(self):
+            return [
+                path(
+                    "custom-page/",
+                    self.admin_site.admin_view(
+                        MyCustomView.as_view(model_admin=self)
+                    ),
+                    name="myapp_mymodel_custom_page",
+                ),
+            ] + super().get_urls()
+    ```
+  </Step>
+
+  <Step title="Create the Template">
+    Create a template that extends Unfold's base layout.
+
+    ```html templates/admin/custom_page.html
+    {% extends "admin/base.html" %}
+    {% load i18n unfold %}
+
+    {% block content %}
+        <div class="p-6">
+            <h1 class="text-2xl font-bold mb-4">{{ title }}</h1>
+            <p>Your custom content here</p>
+        </div>
+    {% endblock %}
+    ```
+  </Step>
+
+  <Step title="Add to Sidebar Navigation">
+    Add a link to your custom page in the sidebar.
+
+    ```python settings.py
+    from django.urls import reverse_lazy
+
+    UNFOLD = {
+        "SIDEBAR": {
+            "navigation": [
+                {
+                    "title": "Custom Pages",
+                    "items": [
+                        {
+                            "title": "My Custom Page",
+                            "icon": "dashboard",
+                            "link": reverse_lazy("admin:myapp_mymodel_custom_page"),
+                        },
+                    ],
+                },
+            ],
+        },
+    }
+    ```
+  </Step>
+</Steps>
+
+## View Configuration
+
+### Required Attributes
+
+<ResponseField name="title" type="string" required>
+  The page title displayed in the header
+</ResponseField>
+
+<ResponseField name="permission_required" type="tuple" required>
+  Tuple of permission strings required to access the page. Use empty tuple `()` for no restrictions.
+</ResponseField>
+
+<ResponseField name="template_name" type="string" required>
+  Path to the template file
+</ResponseField>
+
+### Optional Attributes
+
+<ResponseField name="subtitle" type="string">
+  Additional subtitle text displayed below the title
+</ResponseField>
+
+### Example with Permissions
+
+```python admin.py
+class ReportsView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Sales Reports"
+    permission_required = (
+        "sales.view_report",
+        "sales.view_order",
+    )
+    template_name = "admin/reports.html"
+```
+
+<Warning>
+Always include the `model_admin=self` parameter when calling `as_view()`. This is required for proper integration with Unfold.
+</Warning>
+
+## Advanced Examples
+
+### Custom View with Data
+
+Pass custom data to your template:
+
+```python admin.py
+from django.views.generic import TemplateView
+from unfold.views import UnfoldModelAdminViewMixin
+from .models import Order, Customer
+
+class DashboardView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Sales Dashboard"
+    permission_required = ("orders.view_order",)
+    template_name = "admin/dashboard.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Add custom data
+        context.update({
+            "total_orders": Order.objects.count(),
+            "pending_orders": Order.objects.filter(status='pending').count(),
+            "total_revenue": Order.objects.aggregate(Sum('total'))['total__sum'],
+            "recent_customers": Customer.objects.order_by('-created_at')[:5],
+        })
+        
+        return context
+```
+
+```html templates/admin/dashboard.html
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block content %}
+    <div class="p-6">
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm text-gray-600">Total Orders</h3>
+                <p class="text-3xl font-bold">{{ total_orders }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm text-gray-600">Pending Orders</h3>
+                <p class="text-3xl font-bold">{{ pending_orders }}</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm text-gray-600">Total Revenue</h3>
+                <p class="text-3xl font-bold">${{ total_revenue|floatformat:2 }}</p>
+            </div>
+        </div>
+        
+        <h2 class="text-xl font-bold mb-4">Recent Customers</h2>
+        <ul>
+            {% for customer in recent_customers %}
+                <li>{{ customer.name }} - {{ customer.email }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endblock %}
+```
+
+### Form-Based Custom Page
+
+Create a custom page with form handling:
+
+```python admin.py
+from django import forms
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.views.generic import FormView
+from unfold.views import UnfoldModelAdminViewMixin
+
+class ImportForm(forms.Form):
+    file = forms.FileField(label="CSV File")
+    overwrite = forms.BooleanField(required=False, label="Overwrite existing data")
+
+class ImportDataView(UnfoldModelAdminViewMixin, FormView):
+    title = "Import Data"
+    permission_required = ("myapp.add_mymodel",)
+    template_name = "admin/import_data.html"
+    form_class = ImportForm
+    
+    def form_valid(self, form):
+        file = form.cleaned_data['file']
+        overwrite = form.cleaned_data['overwrite']
+        
+        # Process the file
+        try:
+            imported_count = self.process_import(file, overwrite)
+            messages.success(
+                self.request,
+                f"Successfully imported {imported_count} records."
+            )
+        except Exception as e:
+            messages.error(self.request, f"Import failed: {str(e)}")
+        
+        return redirect('admin:myapp_mymodel_changelist')
+    
+    def process_import(self, file, overwrite):
+        # Your import logic here
+        return 0
+```
+
+```html templates/admin/import_data.html
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block content %}
+    <div class="p-6 max-w-2xl">
+        <h1 class="text-2xl font-bold mb-6">{{ title }}</h1>
+        
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            <div>
+                {{ form.file.label_tag }}
+                {{ form.file }}
+                {% if form.file.errors %}
+                    <p class="text-red-600 text-sm">{{ form.file.errors }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center">
+                {{ form.overwrite }}
+                {{ form.overwrite.label_tag }}
+            </div>
+            
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                Import Data
+            </button>
+        </form>
+    </div>
+{% endblock %}
+```
+
+### ListView-Based Custom Page
+
+Create a custom list view:
+
+```python admin.py
+from django.views.generic import ListView
+from unfold.views import UnfoldModelAdminViewMixin
+from .models import Report
+
+class ReportsListView(UnfoldModelAdminViewMixin, ListView):
+    title = "Generated Reports"
+    permission_required = ("reports.view_report",)
+    template_name = "admin/reports_list.html"
+    model = Report
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by current user if not superuser
+        if not self.request.user.is_superuser:
+            queryset = queryset.filter(created_by=self.request.user)
+        
+        return queryset.order_by('-created_at')
+```
+
+```html templates/admin/reports_list.html
+{% extends "admin/base.html" %}
+{% load i18n unfold %}
+
+{% block content %}
+    <div class="p-6">
+        <h1 class="text-2xl font-bold mb-6">{{ title }}</h1>
+        
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for report in object_list %}
+                        <tr>
+                            <td class="px-6 py-4">{{ report.name }}</td>
+                            <td class="px-6 py-4">{{ report.created_at|date:"Y-m-d H:i" }}</td>
+                            <td class="px-6 py-4">
+                                <a href="{{ report.file.url }}" class="text-blue-600 hover:text-blue-800">
+                                    Download
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if is_paginated %}
+            <div class="mt-4 flex justify-center">
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}" class="px-4 py-2 bg-gray-200 rounded">
+                        Previous
+                    </a>
+                {% endif %}
+                <span class="px-4 py-2">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="px-4 py-2 bg-gray-200 rounded">
+                        Next
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+```
+
+## Custom Site-Level Views
+
+Create custom views at the site level rather than model level:
+
+```python admin.py
+from django.contrib import admin
+from django.urls import path
+from unfold.admin import UnfoldAdminSite
+from unfold.views import UnfoldModelAdminViewMixin
+from django.views.generic import TemplateView
+
+class GlobalReportsView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Global Reports"
+    permission_required = ()
+    template_name = "admin/global_reports.html"
+
+class CustomAdminSite(UnfoldAdminSite):
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                'global-reports/',
+                self.admin_view(GlobalReportsView.as_view()),
+                name='global_reports',
+            ),
+        ]
+        return custom_urls + urls
+
+site = CustomAdminSite()
+```
+
+## Tabs Integration
+
+Add tabs to your custom pages:
+
+```html templates/admin/custom_page.html
+{% extends "admin/base.html" %}
+{% load admin_urls i18n unfold %}
+
+{% block content %}
+    {# Display tabs if configured #}
+    {% tab_list "myapp.mymodel" %}
+    
+    <div class="p-6">
+        <h1 class="text-2xl font-bold mb-4">{{ title }}</h1>
+        <!-- Your content -->
+    </div>
+{% endblock %}
+```
+
+<Note>
+To use tabs, you need to configure them in your `UNFOLD` settings under the `TABS` key. See the [Configuration Settings](/configuration/settings) for details on the TABS setting.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always Set Permissions">
+    Even if you want a page to be publicly accessible within the admin, explicitly set `permission_required = ()` to make your intent clear.
+
+    ```python
+    class PublicReportView(UnfoldModelAdminViewMixin, TemplateView):
+        title = "Public Report"
+        permission_required = ()  # Explicitly no permissions required
+        template_name = "admin/public_report.html"
+    ```
+  </Accordion>
+
+  <Accordion title="Use Descriptive URL Names">
+    Follow Django's URL naming convention: `admin:appname_modelname_viewname`
+
+    ```python
+    path(
+        'reports/',
+        view,
+        name='myapp_mymodel_reports',  # Good
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Add to Sidebar Navigation">
+    Custom pages should be added to the sidebar navigation for discoverability.
+
+    ```python
+    UNFOLD = {
+        "SIDEBAR": {
+            "navigation": [
+                {
+                    "title": "Reports",
+                    "items": [
+                        {
+                            "title": "Sales Report",
+                            "icon": "analytics",
+                            "link": reverse_lazy("admin:myapp_mymodel_reports"),
+                        },
+                    ],
+                },
+            ],
+        },
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Handle Errors Gracefully">
+    Always include error handling in your custom views.
+
+    ```python
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        try:
+            context['data'] = self.fetch_data()
+        except Exception as e:
+            messages.error(self.request, f"Error loading data: {str(e)}")
+            context['data'] = None
+        
+        return context
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="View Not Accessible">
+    If your custom view returns a 404 or permission denied:
+
+    1. Check that the URL is correctly registered
+    2. Verify `permission_required` is set correctly
+    3. Ensure `model_admin=self` is passed to `as_view()`
+    4. Check that the view is wrapped with `self.admin_site.admin_view()`
+  </Accordion>
+
+  <Accordion title="Template Not Found">
+    If Django can't find your template:
+
+    1. Verify the template path in `template_name`
+    2. Check that `TEMPLATES['DIRS']` includes your template directory
+    3. Ensure the template file exists at the specified path
+  </Accordion>
+
+  <Accordion title="Missing Context Variables">
+    If Unfold-specific context is missing:
+
+    1. Ensure you're inheriting from `UnfoldModelAdminViewMixin`
+    2. Call `super().get_context_data(**kwargs)` in your `get_context_data` method
+    3. Verify the view is properly registered with `model_admin=self`
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Sidebar Navigation" icon="bars" href="/docs/advanced/sidebar-navigation">
+    Add your custom page to the sidebar navigation
+  </Card>
+  <Card title="Dashboard" icon="dashboard" href="/docs/advanced/dashboard">
+    Customize the main admin dashboard
+  </Card>
+  <Card title="Tabs" icon="folder" href="/docs/tabs/index">
+    Add tab navigation to your custom pages
+  </Card>
+  <Card title="Actions" icon="bolt" href="/docs/actions/introduction">
+    Create custom actions for your models
+  </Card>
+</CardGroup>

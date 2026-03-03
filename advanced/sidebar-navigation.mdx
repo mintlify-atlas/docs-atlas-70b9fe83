@@ -1,0 +1,594 @@
+---
+title: Sidebar Navigation
+description: Configure Django Unfold sidebar navigation with custom links, icons, badges, permissions, collapsible groups, and search functionality for an organized admin interface.
+---
+
+# Sidebar Navigation
+
+The sidebar navigation in Django Unfold provides a customizable menu system for organizing and accessing your admin interface. Configure custom navigation groups, links, icons, badges, and permissions to create an intuitive admin experience.
+
+## Basic Configuration
+
+Define your sidebar navigation in the `UNFOLD` settings dictionary using the `SIDEBAR` key.
+
+```python settings.py
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": False,              # Search in application/model names
+        "command_search": False,           # Use command palette for search
+        "show_all_applications": False,    # Show dropdown with all apps
+        "navigation": [
+            {
+                "title": _("Navigation"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Dashboard"),
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+## Navigation Structure
+
+Navigation is organized into groups, with each group containing multiple items.
+
+### Navigation Groups
+
+<ResponseField name="title" type="string" required>
+  Display name for the navigation group
+</ResponseField>
+
+<ResponseField name="separator" type="bool" default="False">
+  Show a top border separator for the group
+</ResponseField>
+
+<ResponseField name="collapsible" type="bool" default="False">
+  Make the group expandable/collapsible
+</ResponseField>
+
+<ResponseField name="items" type="list" required>
+  List of navigation items in the group
+</ResponseField>
+
+<ResponseField name="badge" type="string | callable">
+  Badge text or callback function for the group
+</ResponseField>
+
+### Navigation Items
+
+<ResponseField name="title" type="string | callable" required>
+  Display name for the navigation item
+</ResponseField>
+
+<ResponseField name="icon" type="string" required>
+  Material Icon name from [Google Fonts Icons](https://fonts.google.com/icons)
+</ResponseField>
+
+<ResponseField name="link" type="string | callable" required>
+  URL for the navigation item
+</ResponseField>
+
+<ResponseField name="badge" type="string | callable">
+  Badge text or callback function
+</ResponseField>
+
+<ResponseField name="badge_variant" type="string" default="info">
+  Badge color variant: `info`, `success`, `warning`, `primary`, `danger`
+</ResponseField>
+
+<ResponseField name="badge_style" type="string" default="solid">
+  Badge background style: `solid` or `outline`
+</ResponseField>
+
+<ResponseField name="permission" type="callable">
+  Permission check callback function
+</ResponseField>
+
+<ResponseField name="active" type="callable">
+  Custom active state callback function
+</ResponseField>
+
+## Basic Examples
+
+### Simple Navigation
+
+```python settings.py
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("Main Navigation"),
+                "items": [
+                    {
+                        "title": _("Dashboard"),
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                    {
+                        "title": _("Customers"),
+                        "icon": "people",
+                        "link": reverse_lazy("admin:customers_customer_changelist"),
+                    },
+                    {
+                        "title": _("Orders"),
+                        "icon": "shopping_cart",
+                        "link": reverse_lazy("admin:orders_order_changelist"),
+                    },
+                    {
+                        "title": _("Products"),
+                        "icon": "inventory",
+                        "link": reverse_lazy("admin:products_product_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+### Collapsible Groups
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("Content Management"),
+                "separator": True,
+                "collapsible": True,  # Make group collapsible
+                "items": [
+                    {
+                        "title": _("Pages"),
+                        "icon": "article",
+                        "link": reverse_lazy("admin:cms_page_changelist"),
+                    },
+                    {
+                        "title": _("Blog Posts"),
+                        "icon": "edit_note",
+                        "link": reverse_lazy("admin:blog_post_changelist"),
+                    },
+                    {
+                        "title": _("Media Library"),
+                        "icon": "photo_library",
+                        "link": reverse_lazy("admin:media_file_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Settings"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Site Configuration"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:config_sitesettings_changelist"),
+                    },
+                    {
+                        "title": _("Users"),
+                        "icon": "manage_accounts",
+                        "link": reverse_lazy("admin:auth_user_changelist"),
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+## Advanced Features
+
+### Dynamic Badges
+
+Display dynamic badges with counts or notifications:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("Operations"),
+                "items": [
+                    {
+                        "title": _("Pending Orders"),
+                        "icon": "pending",
+                        "link": reverse_lazy("admin:orders_order_changelist") + "?status=pending",
+                        "badge": "app.utils.pending_orders_count",
+                        "badge_variant": "warning",
+                    },
+                    {
+                        "title": _("Support Tickets"),
+                        "icon": "support",
+                        "link": reverse_lazy("admin:support_ticket_changelist"),
+                        "badge": "app.utils.open_tickets_count",
+                        "badge_variant": "danger",
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+```python utils.py
+from orders.models import Order
+from support.models import Ticket
+
+def pending_orders_count(request):
+    """Return count of pending orders."""
+    return Order.objects.filter(status='pending').count()
+
+def open_tickets_count(request):
+    """Return count of open support tickets."""
+    return Ticket.objects.filter(status='open').count()
+```
+
+### Permission-Based Navigation
+
+Show/hide navigation items based on user permissions:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("Admin Tools"),
+                "items": [
+                    {
+                        "title": _("User Management"),
+                        "icon": "manage_accounts",
+                        "link": reverse_lazy("admin:auth_user_changelist"),
+                        "permission": "app.utils.is_admin",
+                    },
+                    {
+                        "title": _("System Logs"),
+                        "icon": "history",
+                        "link": reverse_lazy("admin:logs_systemlog_changelist"),
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                    {
+                        "title": _("Reports"),
+                        "icon": "analytics",
+                        "link": reverse_lazy("admin:reports_index"),
+                        "permission": "app.utils.can_view_reports",
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+```python utils.py
+def is_admin(request):
+    """Check if user is an admin."""
+    return request.user.groups.filter(name='Admins').exists()
+
+def can_view_reports(request):
+    """Check if user can view reports."""
+    return request.user.has_perm('reports.view_report')
+```
+
+### Dynamic Links
+
+Generate navigation links dynamically:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("Quick Actions"),
+                "items": [
+                    {
+                        "title": _("My Tasks"),
+                        "icon": "task",
+                        "link": "app.utils.get_user_tasks_link",
+                    },
+                    {
+                        "title": _("My Reports"),
+                        "icon": "description",
+                        "link": "app.utils.get_user_reports_link",
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+```python utils.py
+from django.urls import reverse
+
+def get_user_tasks_link(request):
+    """Generate link to user's tasks."""
+    return reverse('admin:tasks_task_changelist') + f"?assigned_to={request.user.id}"
+
+def get_user_reports_link(request):
+    """Generate link to user's reports."""
+    return reverse('admin:reports_report_changelist') + f"?created_by={request.user.id}"
+```
+
+### Nested Navigation
+
+Create nested navigation items:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": _("E-commerce"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Products"),
+                        "icon": "inventory",
+                        "link": reverse_lazy("admin:products_product_changelist"),
+                    },
+                    {
+                        "title": _("Orders"),
+                        "icon": "shopping_cart",
+                        "items": [  # Nested items
+                            {
+                                "title": _("All Orders"),
+                                "link": reverse_lazy("admin:orders_order_changelist"),
+                            },
+                            {
+                                "title": _("Pending"),
+                                "link": reverse_lazy("admin:orders_order_changelist") + "?status=pending",
+                            },
+                            {
+                                "title": _("Completed"),
+                                "link": reverse_lazy("admin:orders_order_changelist") + "?status=completed",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
+}
+```
+
+## Search Configuration
+
+### Basic Sidebar Search
+
+Enable simple search in application and model names:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,
+    },
+}
+```
+
+### Command Palette Search
+
+Replace sidebar search with the more powerful command palette:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,  # Use command palette instead
+    },
+}
+```
+
+<Tip>
+The command palette provides advanced search functionality including model data search and custom callbacks. See the [Command Palette](/advanced/command-palette) documentation for details.
+</Tip>
+
+### Show All Applications
+
+Display a dropdown with all registered applications:
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "show_all_applications": True,
+    },
+}
+```
+
+<Note>
+This option is useful when you have many applications but only show the most important ones in the custom navigation.
+</Note>
+
+## Complete Configuration Example
+
+```python settings.py
+from django.urls import reverse_lazy
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": _("Dashboard"),
+                "separator": True,
+                "items": [
+                    {
+                        "title": _("Home"),
+                        "icon": "dashboard",
+                        "link": reverse_lazy("admin:index"),
+                    },
+                    {
+                        "title": _("Analytics"),
+                        "icon": "analytics",
+                        "link": reverse_lazy("admin:analytics_dashboard"),
+                        "permission": lambda request: request.user.has_perm('analytics.view_dashboard'),
+                    },
+                ],
+            },
+            {
+                "title": _("Sales"),
+                "separator": True,
+                "collapsible": True,
+                "badge": "app.utils.pending_orders_badge",
+                "items": [
+                    {
+                        "title": _("Orders"),
+                        "icon": "shopping_cart",
+                        "link": reverse_lazy("admin:orders_order_changelist"),
+                        "badge": "app.utils.pending_orders_count",
+                        "badge_variant": "warning",
+                    },
+                    {
+                        "title": _("Customers"),
+                        "icon": "people",
+                        "link": reverse_lazy("admin:customers_customer_changelist"),
+                    },
+                    {
+                        "title": _("Invoices"),
+                        "icon": "receipt",
+                        "link": reverse_lazy("admin:invoices_invoice_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Inventory"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Products"),
+                        "icon": "inventory",
+                        "link": reverse_lazy("admin:products_product_changelist"),
+                    },
+                    {
+                        "title": _("Categories"),
+                        "icon": "category",
+                        "link": reverse_lazy("admin:products_category_changelist"),
+                    },
+                    {
+                        "title": _("Stock Alerts"),
+                        "icon": "warning",
+                        "link": reverse_lazy("admin:inventory_stockalert_changelist"),
+                        "badge": "app.utils.low_stock_count",
+                        "badge_variant": "danger",
+                    },
+                ],
+            },
+            {
+                "title": _("Administration"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Users"),
+                        "icon": "manage_accounts",
+                        "link": reverse_lazy("admin:auth_user_changelist"),
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                    {
+                        "title": _("Groups"),
+                        "icon": "group",
+                        "link": reverse_lazy("admin:auth_group_changelist"),
+                        "permission": lambda request: request.user.is_superuser,
+                    },
+                ],
+            },
+        ],
+    },
+}
+
+# Callback functions in utils.py
+# def pending_orders_count(request):
+#     from orders.models import Order
+#     return Order.objects.filter(status='pending').count()
+#
+# def pending_orders_badge(request):
+#     count = pending_orders_count(request)
+#     return count if count > 0 else None
+#
+# def low_stock_count(request):
+#     from inventory.models import StockAlert
+#     return StockAlert.objects.filter(resolved=False).count()
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Lazy Reverse for URLs">
+    Always use `reverse_lazy()` instead of `reverse()` in settings to avoid circular import issues.
+
+    ```python
+    from django.urls import reverse_lazy  # Good
+    from django.urls import reverse       # Bad in settings
+    ```
+  </Accordion>
+
+  <Accordion title="Organize by User Journey">
+    Group navigation items based on user workflows and common tasks rather than by model hierarchy.
+
+    ```python
+    # Good - organized by workflow
+    ["Dashboard", "Orders", "Customers", "Products"]
+    
+    # Less optimal - organized by app
+    ["Auth", "Orders App", "Products App", "Customers App"]
+    ```
+  </Accordion>
+
+  <Accordion title="Use Meaningful Icons">
+    Choose icons that clearly represent the navigation item's purpose. Browse [Material Icons](https://fonts.google.com/icons) for options.
+  </Accordion>
+
+  <Accordion title="Cache Badge Counts">
+    Cache expensive badge calculations to avoid performance issues.
+
+    ```python
+    from django.core.cache import cache
+    
+    def pending_orders_count(request):
+        cache_key = f'pending_orders_{request.user.id}'
+        count = cache.get(cache_key)
+        
+        if count is None:
+            count = Order.objects.filter(status='pending').count()
+            cache.set(cache_key, count, 60)  # Cache for 1 minute
+        
+        return count
+    ```
+  </Accordion>
+
+  <Accordion title="Test Permissions">
+    Always test permission callbacks to ensure users only see appropriate navigation items.
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Command Palette" icon="terminal" href="/docs/advanced/command-palette">
+    Configure advanced search and navigation
+  </Card>
+  <Card title="Custom Pages" icon="file" href="/docs/advanced/custom-pages">
+    Add custom pages to your sidebar navigation
+  </Card>
+  <Card title="Tabs" icon="folder" href="/docs/tabs/index">
+    Configure tab navigation for changeforms
+  </Card>
+  <Card title="Settings" icon="gear" href="/docs/configuration/settings">
+    View all available configuration options
+  </Card>
+</CardGroup>

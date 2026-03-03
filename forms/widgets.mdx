@@ -1,0 +1,734 @@
+---
+title: Custom Widgets
+description: Complete reference for all form widgets available in Django Unfold
+icon: palette
+---
+
+## Introduction
+
+Django Unfold provides a comprehensive set of custom form widgets that are styled to match the admin interface. All widgets come with pre-applied Tailwind CSS classes and are fully compatible with Django's form system.
+
+## Text Input Widgets
+
+### UnfoldAdminTextInputWidget
+
+Standard text input field with Unfold styling:
+
+```python forms.py
+from django import forms
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+class ArticleForm(forms.ModelForm):
+    title = forms.CharField(
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'placeholder': 'Enter article title'
+        })
+    )
+```
+
+#### With Prefix and Suffix
+
+```python
+# Text prefix
+forms.CharField(
+    widget=UnfoldAdminTextInputWidget(attrs={
+        'prefix': '$',
+        'placeholder': '0.00'
+    })
+)
+
+# Icon prefix
+forms.CharField(
+    widget=UnfoldAdminTextInputWidget(attrs={
+        'prefix_icon': 'search',
+        'placeholder': 'Search...'
+    })
+)
+
+# Text suffix
+forms.CharField(
+    widget=UnfoldAdminTextInputWidget(attrs={
+        'suffix': 'kg',
+        'placeholder': 'Weight'
+    })
+)
+
+# Icon suffix
+forms.CharField(
+    widget=UnfoldAdminTextInputWidget(attrs={
+        'suffix_icon': 'email',
+        'placeholder': 'Email address'
+    })
+)
+```
+
+<Info>
+Icons use Material Symbols. The widget automatically adjusts padding when icons are present.
+</Info>
+
+### UnfoldAdminEmailInputWidget
+
+Email input with validation:
+
+```python
+from unfold.widgets import UnfoldAdminEmailInputWidget
+
+email = forms.EmailField(
+    widget=UnfoldAdminEmailInputWidget(attrs={
+        'placeholder': 'user@example.com'
+    })
+)
+```
+
+### UnfoldAdminURLInputWidget
+
+URL input with validation:
+
+```python
+from unfold.widgets import UnfoldAdminURLInputWidget
+
+website = forms.URLField(
+    widget=UnfoldAdminURLInputWidget(attrs={
+        'placeholder': 'https://example.com'
+    })
+)
+```
+
+### UnfoldAdminUUIDInputWidget
+
+UUID input field:
+
+```python
+from unfold.widgets import UnfoldAdminUUIDInputWidget
+
+uuid_field = forms.UUIDField(
+    widget=UnfoldAdminUUIDInputWidget()
+)
+```
+
+### UnfoldAdminColorInputWidget
+
+Color picker input:
+
+```python
+from unfold.widgets import UnfoldAdminColorInputWidget
+
+color = forms.CharField(
+    widget=UnfoldAdminColorInputWidget()
+)
+```
+
+## Numeric Input Widgets
+
+### UnfoldAdminIntegerFieldWidget
+
+Integer input field:
+
+```python
+from unfold.widgets import UnfoldAdminIntegerFieldWidget
+
+age = forms.IntegerField(
+    widget=UnfoldAdminIntegerFieldWidget(attrs={
+        'min': '0',
+        'max': '120'
+    })
+)
+```
+
+### UnfoldAdminBigIntegerFieldWidget
+
+Big integer field for large numbers:
+
+```python
+from unfold.widgets import UnfoldAdminBigIntegerFieldWidget
+
+population = forms.IntegerField(
+    widget=UnfoldAdminBigIntegerFieldWidget()
+)
+```
+
+### UnfoldAdminDecimalFieldWidget
+
+Decimal number input:
+
+```python
+from unfold.widgets import UnfoldAdminDecimalFieldWidget
+
+price = forms.DecimalField(
+    widget=UnfoldAdminDecimalFieldWidget(attrs={
+        'step': '0.01',
+        'placeholder': '0.00'
+    })
+)
+```
+
+### UnfoldAdminIntegerRangeWidget
+
+Range widget with min and max inputs:
+
+```python
+from unfold.widgets import UnfoldAdminIntegerRangeWidget
+
+age_range = forms.Field(
+    widget=UnfoldAdminIntegerRangeWidget()
+)
+```
+
+## Textarea Widgets
+
+### UnfoldAdminTextareaWidget
+
+Multi-line text input:
+
+```python
+from unfold.widgets import UnfoldAdminTextareaWidget
+
+description = forms.CharField(
+    widget=UnfoldAdminTextareaWidget(attrs={
+        'rows': 5,
+        'placeholder': 'Enter description'
+    })
+)
+```
+
+### UnfoldAdminExpandableTextareaWidget
+
+Auto-expanding textarea:
+
+```python
+from unfold.widgets import UnfoldAdminExpandableTextareaWidget
+
+comment = forms.CharField(
+    widget=UnfoldAdminExpandableTextareaWidget(attrs={
+        'placeholder': 'Add a comment'
+    })
+)
+```
+
+<Note>
+The expandable textarea automatically adjusts its height as the user types.
+</Note>
+
+## Select Widgets
+
+### UnfoldAdminSelectWidget
+
+Dropdown select field:
+
+```python
+from unfold.widgets import UnfoldAdminSelectWidget
+
+CATEGORY_CHOICES = [
+    ('tech', 'Technology'),
+    ('sports', 'Sports'),
+    ('news', 'News'),
+]
+
+category = forms.ChoiceField(
+    choices=CATEGORY_CHOICES,
+    widget=UnfoldAdminSelectWidget()
+)
+```
+
+### UnfoldAdminSelectMultipleWidget
+
+Multiple select field:
+
+```python
+from unfold.widgets import UnfoldAdminSelectMultipleWidget
+
+tags = forms.MultipleChoiceField(
+    choices=TAG_CHOICES,
+    widget=UnfoldAdminSelectMultipleWidget()
+)
+```
+
+### UnfoldAdminNullBooleanSelectWidget
+
+Select for nullable boolean fields:
+
+```python
+from unfold.widgets import UnfoldAdminNullBooleanSelectWidget
+
+is_active = forms.NullBooleanField(
+    widget=UnfoldAdminNullBooleanSelectWidget()
+)
+```
+
+## Autocomplete Widgets
+
+### UnfoldAdminSelect2Widget
+
+Select2-powered autocomplete:
+
+```python
+from unfold.widgets import UnfoldAdminSelect2Widget
+
+country = forms.ChoiceField(
+    choices=COUNTRY_CHOICES,
+    widget=UnfoldAdminSelect2Widget()
+)
+```
+
+### UnfoldAdminSelect2MultipleWidget
+
+Multiple select with autocomplete:
+
+```python
+from unfold.widgets import UnfoldAdminSelect2MultipleWidget
+
+languages = forms.MultipleChoiceField(
+    choices=LANGUAGE_CHOICES,
+    widget=UnfoldAdminSelect2MultipleWidget()
+)
+```
+
+### UnfoldAdminAutocompleteWidget
+
+AJAX autocomplete widget:
+
+```python
+from unfold.widgets import UnfoldAdminAutocompleteWidget
+
+city = forms.ChoiceField(
+    widget=UnfoldAdminAutocompleteWidget()
+)
+```
+
+### UnfoldAdminMultipleAutocompleteWidget
+
+Multiple selection with AJAX autocomplete:
+
+```python
+from unfold.widgets import UnfoldAdminMultipleAutocompleteWidget
+
+cities = forms.MultipleChoiceField(
+    widget=UnfoldAdminMultipleAutocompleteWidget()
+)
+```
+
+<Info>
+Autocomplete widgets require proper AJAX endpoint configuration. See the [Custom Fields](/forms/fields) documentation for model-based autocomplete.
+</Info>
+
+## Date and Time Widgets
+
+### UnfoldAdminDateWidget
+
+Date picker widget:
+
+```python
+from unfold.widgets import UnfoldAdminDateWidget
+
+birthdate = forms.DateField(
+    widget=UnfoldAdminDateWidget(attrs={
+        'placeholder': 'YYYY-MM-DD'
+    })
+)
+```
+
+### UnfoldAdminTimeWidget
+
+Time picker widget:
+
+```python
+from unfold.widgets import UnfoldAdminTimeWidget
+
+appointment_time = forms.TimeField(
+    widget=UnfoldAdminTimeWidget(attrs={
+        'placeholder': 'HH:MM:SS'
+    })
+)
+```
+
+### UnfoldAdminSplitDateTimeWidget
+
+Horizontal date and time picker:
+
+```python
+from unfold.widgets import UnfoldAdminSplitDateTimeWidget
+
+published_at = forms.DateTimeField(
+    widget=UnfoldAdminSplitDateTimeWidget()
+)
+```
+
+### UnfoldAdminSplitDateTimeVerticalWidget
+
+Vertical date and time picker with custom labels:
+
+```python
+from unfold.widgets import UnfoldAdminSplitDateTimeVerticalWidget
+
+event_datetime = forms.DateTimeField(
+    widget=UnfoldAdminSplitDateTimeVerticalWidget(
+        date_label='Event Date',
+        time_label='Event Time'
+    )
+)
+```
+
+### UnfoldAdminSingleDateWidget
+
+Standalone date widget without time shortcuts:
+
+```python
+from unfold.widgets import UnfoldAdminSingleDateWidget
+
+date_field = forms.DateField(
+    widget=UnfoldAdminSingleDateWidget()
+)
+```
+
+### UnfoldAdminSingleTimeWidget
+
+Standalone time widget:
+
+```python
+from unfold.widgets import UnfoldAdminSingleTimeWidget
+
+time_field = forms.TimeField(
+    widget=UnfoldAdminSingleTimeWidget()
+)
+```
+
+## Boolean Widgets
+
+### UnfoldBooleanWidget
+
+Checkbox widget:
+
+```python
+from unfold.widgets import UnfoldBooleanWidget
+
+is_active = forms.BooleanField(
+    widget=UnfoldBooleanWidget()
+)
+```
+
+### UnfoldBooleanSwitchWidget
+
+Toggle switch widget:
+
+```python
+from unfold.widgets import UnfoldBooleanSwitchWidget
+
+enable_notifications = forms.BooleanField(
+    widget=UnfoldBooleanSwitchWidget()
+)
+```
+
+## Radio and Checkbox Widgets
+
+### UnfoldAdminRadioSelectWidget
+
+Radio button group:
+
+```python
+from django.contrib.admin.options import HORIZONTAL, VERTICAL
+from unfold.widgets import UnfoldAdminRadioSelectWidget
+
+STATUS_CHOICES = [
+    ('draft', 'Draft'),
+    ('published', 'Published'),
+    ('archived', 'Archived'),
+]
+
+# Vertical layout (default)
+status = forms.ChoiceField(
+    choices=STATUS_CHOICES,
+    widget=UnfoldAdminRadioSelectWidget()
+)
+
+# Horizontal layout
+status = forms.ChoiceField(
+    choices=STATUS_CHOICES,
+    widget=UnfoldAdminRadioSelectWidget(radio_style=HORIZONTAL)
+)
+```
+
+### UnfoldAdminCheckboxSelectMultipleWidget
+
+Checkbox group:
+
+```python
+from unfold.widgets import UnfoldAdminCheckboxSelectMultipleWidget
+
+permissions = forms.MultipleChoiceField(
+    choices=PERMISSION_CHOICES,
+    widget=UnfoldAdminCheckboxSelectMultipleWidget()
+)
+```
+
+## File Upload Widgets
+
+### UnfoldAdminFileFieldWidget
+
+File upload widget:
+
+```python
+from unfold.widgets import UnfoldAdminFileFieldWidget
+
+document = forms.FileField(
+    widget=UnfoldAdminFileFieldWidget()
+)
+```
+
+### UnfoldAdminImageFieldWidget
+
+Image upload with preview:
+
+```python
+from unfold.widgets import UnfoldAdminImageFieldWidget
+
+profile_picture = forms.ImageField(
+    widget=UnfoldAdminImageFieldWidget()
+)
+```
+
+### UnfoldAdminImageSmallFieldWidget
+
+Image upload with small preview:
+
+```python
+from unfold.widgets import UnfoldAdminImageSmallFieldWidget
+
+thumbnail = forms.ImageField(
+    widget=UnfoldAdminImageSmallFieldWidget()
+)
+```
+
+## Password Widgets
+
+### UnfoldAdminPasswordWidget
+
+Password input field:
+
+```python
+from unfold.widgets import UnfoldAdminPasswordWidget
+
+password = forms.CharField(
+    widget=UnfoldAdminPasswordWidget()
+)
+```
+
+### UnfoldAdminPasswordToggleWidget
+
+Password field with show/hide toggle:
+
+```python
+from unfold.widgets import UnfoldAdminPasswordToggleWidget
+
+password = forms.CharField(
+    widget=UnfoldAdminPasswordToggleWidget()
+)
+```
+
+## Specialized Widgets
+
+### UnfoldForeignKeyRawIdWidget
+
+Raw ID widget for foreign keys:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    raw_id_fields = ['author']  # Automatically uses UnfoldForeignKeyRawIdWidget
+```
+
+### UnfoldAdminRelatedFieldWrapperWidget
+
+Wrapper for related field widgets with add/edit/delete buttons:
+
+```python
+# Automatically applied to ForeignKey and ManyToMany fields
+# Provides + (add), pencil (edit), and × (delete) buttons
+```
+
+### UnfoldAdminMoneyWidget
+
+Money field widget (requires django-money):
+
+```python
+from unfold.widgets import UnfoldAdminMoneyWidget
+
+price = forms.Field(
+    widget=UnfoldAdminMoneyWidget()
+)
+```
+
+<Warning>
+Requires `django-money` package to be installed:
+```bash
+pip install django-money
+```
+</Warning>
+
+### UnfoldAdminLocationWidget
+
+Location field with map (requires django-location-field):
+
+```python
+from unfold.widgets import UnfoldAdminLocationWidget
+
+location = forms.CharField(
+    widget=UnfoldAdminLocationWidget()
+)
+```
+
+<Warning>
+Requires `django-location-field` package to be installed:
+```bash
+pip install django-location-field
+```
+</Warning>
+
+## Contrib Widgets
+
+### ArrayWidget
+
+Dynamic array field with add/remove buttons:
+
+```python
+from unfold.contrib.forms.widgets import ArrayWidget
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+# With text inputs
+tags = forms.Field(
+    widget=ArrayWidget(widget_class=UnfoldAdminTextInputWidget)
+)
+
+# With select dropdowns
+categories = forms.Field(
+    widget=ArrayWidget(choices=CATEGORY_CHOICES)
+)
+```
+
+<Info>
+The ArrayWidget allows users to dynamically add and remove items from an array field.
+</Info>
+
+### WysiwygWidget
+
+Rich text editor (Trix editor):
+
+```python
+from unfold.contrib.forms.widgets import WysiwygWidget
+
+content = forms.CharField(
+    widget=WysiwygWidget()
+)
+```
+
+<CodeGroup>
+```python Installation
+pip install django-unfold[crispy-forms]
+```
+
+```python settings.py
+INSTALLED_APPS = [
+    # ...
+    "unfold",
+    "unfold.contrib.forms",
+]
+```
+</CodeGroup>
+
+## Widget Styling Classes
+
+All widgets use consistent CSS classes:
+
+<Tabs>
+  <Tab title="Input">
+    ```python
+    INPUT_CLASSES = [
+        "border",
+        "border-base-200",
+        "bg-white",
+        "font-medium",
+        "px-3",
+        "py-2",
+        "rounded-default",
+        "shadow-xs",
+        "text-sm",
+        "w-full",
+        "max-w-2xl",
+        "focus:outline-2",
+        "focus:outline-primary-600",
+        "dark:bg-base-900",
+        "dark:border-base-700",
+    ]
+    ```
+  </Tab>
+  
+  <Tab title="Select">
+    ```python
+    SELECT_CLASSES = [
+        *BASE_INPUT_CLASSES,
+        "pr-8",
+        "max-w-2xl",
+        "appearance-none",
+        "text-ellipsis",
+    ]
+    ```
+  </Tab>
+  
+  <Tab title="Checkbox">
+    ```python
+    CHECKBOX_CLASSES = [
+        "appearance-none",
+        "bg-white",
+        "border",
+        "border-base-300",
+        "h-4",
+        "w-4",
+        "rounded-[4px]",
+        "checked:bg-primary-600",
+        "dark:bg-base-900",
+    ]
+    ```
+  </Tab>
+  
+  <Tab title="Switch">
+    ```python
+    SWITCH_CLASSES = [
+        "appearance-none",
+        "bg-base-300",
+        "h-5",
+        "w-8",
+        "rounded-full",
+        "checked:bg-green-500",
+        "dark:bg-base-600",
+    ]
+    ```
+  </Tab>
+</Tabs>
+
+## Custom Attributes
+
+You can add custom HTML attributes to any widget:
+
+```python
+widget=UnfoldAdminTextInputWidget(attrs={
+    'placeholder': 'Enter value',
+    'maxlength': '100',
+    'pattern': '[A-Za-z]+',
+    'title': 'Only letters allowed',
+    'autocomplete': 'off',
+    'data-custom': 'value',
+})
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Fields" icon="input-text" href="/forms/fields">
+    Learn about enhanced form fields
+  </Card>
+  <Card title="Conditional Fields" icon="filter" href="/forms/conditional-fields">
+    Implement conditional field visibility
+  </Card>
+</CardGroup>

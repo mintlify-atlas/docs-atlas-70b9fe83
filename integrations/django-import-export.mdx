@@ -1,0 +1,370 @@
+---
+title: Django Import Export
+description: Enable seamless data import and export functionality in Django Unfold with support for multiple file formats including CSV, Excel, and JSON
+---
+
+## Overview
+
+Django Import Export adds import and export functionality to your Django admin, supporting multiple formats like CSV, Excel, JSON, and YAML. Unfold's integration provides custom-styled forms and maintains a consistent user experience throughout the import/export workflow.
+
+<Info>
+  Import/Export functionality is particularly useful for data migration, bulk updates, and providing users with data portability options.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-import-export">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-import-export
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add both `unfold.contrib.import_export` and `import_export` to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.import_export",  # Must come before import_export
+        
+        "django.contrib.admin",
+        # ...
+        
+        "import_export",
+    ]
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+### Using ImportExportModelAdmin
+
+Configure your admin to support both import and export:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from import_export.admin import ImportExportModelAdmin
+from unfold.contrib.import_export.forms import ExportForm, ImportForm
+from .models import Book
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin, ImportExportModelAdmin):
+    import_form_class = ImportForm
+    export_form_class = ExportForm
+    
+    list_display = ["title", "author", "published_date", "isbn"]
+    search_fields = ["title", "author"]
+```
+
+<Note>
+  The `import_form_class` and `export_form_class` attributes ensure proper Unfold styling for all form elements.
+</Note>
+
+### Using SelectableFieldsExportForm
+
+Allow users to choose which fields to export:
+
+```python admin.py
+from unfold.contrib.import_export.forms import SelectableFieldsExportForm
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin, ImportExportModelAdmin):
+    import_form_class = ImportForm
+    export_form_class = SelectableFieldsExportForm
+```
+
+## Resource Configuration
+
+Define a Resource class to customize import/export behavior:
+
+```python resources.py
+from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
+from .models import Book, Author
+
+class BookResource(resources.ModelResource):
+    author = fields.Field(
+        column_name="author",
+        attribute="author",
+        widget=ForeignKeyWidget(Author, "name")
+    )
+    
+    class Meta:
+        model = Book
+        fields = ["id", "title", "author", "published_date", "isbn"]
+        export_order = ["id", "title", "author", "published_date", "isbn"]
+        import_id_fields = ["isbn"]  # Use ISBN as unique identifier
+        skip_unchanged = True
+        report_skipped = True
+```
+
+### Connecting Resource to Admin
+
+```python admin.py
+from .resources import BookResource
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin, ImportExportModelAdmin):
+    resource_class = BookResource
+    import_form_class = ImportForm
+    export_form_class = ExportForm
+```
+
+## Advanced Features
+
+### Custom Import/Export Formats
+
+Restrict available formats:
+
+```python admin.py
+from import_export.formats.base_formats import CSV, XLSX
+
+class BookAdmin(ModelAdmin, ImportExportModelAdmin):
+    formats = [CSV, XLSX]  # Only allow CSV and Excel
+    import_form_class = ImportForm
+    export_form_class = ExportForm
+```
+
+### Field Validation and Cleaning
+
+Add custom validation during import:
+
+```python resources.py
+from import_export import resources
+from django.core.exceptions import ValidationError
+
+class BookResource(resources.ModelResource):
+    def before_import_row(self, row, **kwargs):
+        """Validate and clean data before importing."""
+        # Normalize ISBN format
+        if "isbn" in row:
+            row["isbn"] = row["isbn"].replace("-", "").strip()
+        
+        # Validate required fields
+        if not row.get("title"):
+            raise ValidationError("Title is required")
+    
+    def after_import_row(self, row, row_result, **kwargs):
+        """Perform actions after importing a row."""
+        # Send notification, update cache, etc.
+        pass
+    
+    class Meta:
+        model = Book
+```
+
+### Handling Related Objects
+
+Import data with foreign key relationships:
+
+```python resources.py
+from import_export import resources, fields
+from import_export.widgets import ForeignKeyWidget
+
+class BookResource(resources.ModelResource):
+    author = fields.Field(
+        column_name="author_name",
+        attribute="author",
+        widget=ForeignKeyWidget(Author, "name")
+    )
+    
+    publisher = fields.Field(
+        column_name="publisher_name",
+        attribute="publisher",
+        widget=ForeignKeyWidget(Publisher, "name")
+    )
+    
+    class Meta:
+        model = Book
+        # If author doesn't exist, create it
+        skip_unchanged = True
+```
+
+### Bulk Updates
+
+Update existing records during import:
+
+```python resources.py
+class BookResource(resources.ModelResource):
+    class Meta:
+        model = Book
+        import_id_fields = ["isbn"]  # Match on ISBN
+        fields = ["isbn", "title", "price", "stock"]
+        # This will update existing books and create new ones
+```
+
+## Export Action ModelAdmin (Legacy)
+
+<Warning>
+  This class has been removed in django-import-export 4.x as styling issues have been resolved in the core package.
+</Warning>
+
+For django-import-export versions prior to 4.x, use the custom `ExportActionModelAdmin`:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+from unfold.contrib.import_export.admin import ExportActionModelAdmin
+
+# Only needed for django-import-export < 4.x
+@admin.register(Book)
+class BookAdmin(ModelAdmin, ExportActionModelAdmin):
+    pass
+```
+
+## User Workflow
+
+### Importing Data
+
+<Steps>
+  <Step title="Access import">
+    Click the "Import" button on the model's changelist page
+  </Step>
+  
+  <Step title="Select file">
+    Choose your data file (CSV, Excel, JSON, etc.)
+  </Step>
+  
+  <Step title="Select format">
+    Pick the file format from the dropdown
+  </Step>
+  
+  <Step title="Preview changes">
+    Review what will be imported, including any errors or warnings
+  </Step>
+  
+  <Step title="Confirm import">
+    Confirm to execute the import operation
+  </Step>
+</Steps>
+
+### Exporting Data
+
+<Steps>
+  <Step title="Access export">
+    Click the "Export" button on the changelist page
+  </Step>
+  
+  <Step title="Select format">
+    Choose your preferred export format
+  </Step>
+  
+  <Step title="Select fields (optional)">
+    If using `SelectableFieldsExportForm`, choose which fields to include
+  </Step>
+  
+  <Step title="Download">
+    Click export to download your file
+  </Step>
+</Steps>
+
+<Frame>
+  <img src="/images/django-import-export-workflow.png" alt="Import Export Workflow" />
+</Frame>
+
+## Performance Optimization
+
+### Bulk Operations
+
+Optimize import performance for large datasets:
+
+```python resources.py
+class BookResource(resources.ModelResource):
+    class Meta:
+        model = Book
+        batch_size = 1000  # Import in batches
+        use_bulk = True    # Use bulk_create/bulk_update
+```
+
+### Deferred Fields
+
+Exclude heavy fields from export:
+
+```python resources.py
+class BookResource(resources.ModelResource):
+    class Meta:
+        model = Book
+        exclude = ["cover_image", "full_text"]  # Skip large fields
+```
+
+## Example CSV Format
+
+```csv
+id,title,author_name,published_date,isbn
+1,"Django for Beginners","William Vincent","2023-01-15","9781735467221"
+2,"Two Scoops of Django","Daniel Roy Greenfeld","2022-06-01","9781081582162"
+3,"Django Design Patterns","Arun Ravindran","2023-03-20","9781484282281"
+```
+
+## Live Demo
+
+<Card 
+  title="Try Import/Export Features" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/formula/constructor/"
+>
+  Explore data import and export functionality with real examples
+</Card>
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Data Migration">
+    Transfer data between environments or systems:
+    
+    ```python
+    # Export from production
+    # Import to staging with same format
+    # Validate before deploying
+    ```
+  </Accordion>
+  
+  <Accordion title="Bulk Updates">
+    Update multiple records via spreadsheet:
+    
+    ```python
+    # Export current data
+    # Edit in Excel/Google Sheets
+    # Import to update records
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Backups">
+    Regular exports for backup purposes:
+    
+    ```python
+    # Scheduled exports via management command
+    # Store in S3 or backup location
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Analysis">
+    Export for analysis in external tools:
+    
+    ```python
+    # Export to CSV/Excel
+    # Analyze in pandas, R, or Excel
+    # Import updated data if needed
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Import-Export Docs" icon="book" href="https://django-import-export.readthedocs.io/">
+    Official documentation and tutorials
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/django-import-export/django-import-export">
+    Source code and examples
+  </Card>
+</CardGroup>
+
+<Tip>
+  Always test imports on a copy of your data first to prevent accidental overwrites or data loss.
+</Tip>

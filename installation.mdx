@@ -1,0 +1,318 @@
+---
+title: Installation
+description: Complete guide to installing and configuring Django Unfold in your Django project
+---
+
+## Prerequisites
+
+Before installing Django Unfold, ensure your project meets these requirements:
+
+<CardGroup cols={2}>
+  <Card title="Python Version" icon="python">
+    Python 3.11 or higher
+  </Card>
+  <Card title="Django Version" icon="code">
+    Django 4.2, 5.0, 5.1, 5.2, or 6.0
+  </Card>
+</CardGroup>
+
+<Warning>
+  Django Unfold requires Python 3.11 or newer. If you're using an older version of Python, you'll need to upgrade before proceeding.
+</Warning>
+
+## Installation Steps
+
+<Steps>
+  <Step title="Install the Package">
+    Install Django Unfold using pip:
+    
+    ```bash
+    pip install django-unfold
+    ```
+    
+    This will install the latest stable version from PyPI.
+  </Step>
+
+  <Step title="Update INSTALLED_APPS">
+    Add `unfold` to your `INSTALLED_APPS` in `settings.py`. **Important:** Place it before `django.contrib.admin`:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",  # Must come before django.contrib.admin
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "django.contrib.sessions",
+        "django.contrib.messages",
+        "django.contrib.staticfiles",
+        # Your other apps...
+    ]
+    ```
+    
+    <Note>
+      The order is critical! Unfold must be listed before `django.contrib.admin` to properly override the default admin templates.
+    </Note>
+  </Step>
+
+  <Step title="Collect Static Files">
+    Run Django's `collectstatic` command to gather Unfold's static assets:
+    
+    ```bash
+    python manage.py collectstatic
+    ```
+    
+    This copies all CSS, JavaScript, and other static files to your `STATIC_ROOT` directory.
+  </Step>
+
+  <Step title="Verify Installation">
+    Start your development server and access the admin interface:
+    
+    ```bash
+    python manage.py runserver
+    ```
+    
+    Navigate to `http://127.0.0.1:8000/admin/` and you should see the new Unfold interface!
+  </Step>
+</Steps>
+
+## Optional Dependencies
+
+Django Unfold includes optional integrations for popular Django packages. Install these if you need their functionality:
+
+<AccordionGroup>
+  <Accordion title="Advanced Filters">
+    For enhanced filtering capabilities:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.filters",  # Advanced filter support
+        "django.contrib.admin",
+        # ...
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Form Enhancements">
+    For improved form widgets and styling:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.forms",  # Enhanced form support
+        "django.contrib.admin",
+        # ...
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Inline Enhancements">
+    For advanced inline features:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.inlines",  # Advanced inline support
+        "django.contrib.admin",
+        # ...
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Import/Export Integration">
+    For django-import-export support:
+    
+    ```bash
+    pip install django-import-export
+    ```
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.import_export",
+        "django.contrib.admin",
+        # ...
+        "import_export",
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Simple History Integration">
+    For django-simple-history support:
+    
+    ```bash
+    pip install django-simple-history
+    ```
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.simple_history",
+        "django.contrib.admin",
+        # ...
+        "simple_history",
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Guardian Integration">
+    For django-guardian permission support:
+    
+    ```bash
+    pip install django-guardian
+    ```
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.guardian",
+        "django.contrib.admin",
+        # ...
+        "guardian",
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Constance Integration">
+    For django-constance dynamic settings:
+    
+    ```bash
+    pip install django-constance
+    ```
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.constance",
+        "django.contrib.admin",
+        # ...
+        "constance",
+    ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Configuration
+
+### Basic Configuration
+
+Django Unfold works out of the box with sensible defaults. However, you can customize various aspects through your `settings.py`:
+
+```python settings.py
+# Unfold settings (all optional)
+UNFOLD = {
+    "SITE_TITLE": "My Admin Panel",
+    "SITE_HEADER": "My Administration",
+    "SITE_URL": "/",
+    # Add more configuration options as needed
+}
+```
+
+### Static Files Configuration
+
+Ensure your static files are properly configured:
+
+```python settings.py
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# For development
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+```
+
+### Media Files Configuration
+
+If you're using file uploads in your admin:
+
+```python settings.py
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+```
+
+## Running Alongside Default Admin
+
+Django Unfold supports running alongside the default Django admin. This is useful for gradual migration or testing:
+
+<CodeGroup>
+```python urls.py
+from django.contrib import admin
+from django.urls import path
+from unfold.sites import UnfoldAdminSite
+
+# Create a separate Unfold admin site
+unfold_admin_site = UnfoldAdminSite(name="unfold_admin")
+
+# Register your models with both sites if needed
+# unfold_admin_site.register(MyModel, MyModelAdmin)
+
+urlpatterns = [
+    path("admin/", admin.site.urls),  # Default admin
+    path("unfold-admin/", unfold_admin_site.urls),  # Unfold admin
+]
+```
+
+```python settings.py
+INSTALLED_APPS = [
+    "unfold",
+    "django.contrib.admin",
+    # ...
+]
+```
+</CodeGroup>
+
+<Note>
+  When running both admin interfaces, you can access the default admin at `/admin/` and the Unfold admin at `/unfold-admin/`.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Admin interface looks the same as before">
+    **Solution:** Make sure `unfold` is listed before `django.contrib.admin` in `INSTALLED_APPS` and that you've run `collectstatic`.
+  </Accordion>
+
+  <Accordion title="Static files not loading">
+    **Solution:** Run `python manage.py collectstatic` and verify your `STATIC_URL` and `STATIC_ROOT` settings are correct.
+  </Accordion>
+
+  <Accordion title="Import errors when using Unfold components">
+    **Solution:** Ensure you're importing from the correct modules:
+    ```python
+    from unfold.admin import ModelAdmin  # Correct
+    from django.contrib.admin import ModelAdmin  # Wrong
+    ```
+  </Accordion>
+
+  <Accordion title="Templates not found">
+    **Solution:** Check that `APP_DIRS` is set to `True` in your `TEMPLATES` setting:
+    ```python
+    TEMPLATES = [
+        {
+            "BACKEND": "django.template.backends.django.DjangoTemplates",
+            "DIRS": [],
+            "APP_DIRS": True,  # Must be True
+            # ...
+        },
+    ]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that Django Unfold is installed, you're ready to start building your admin interface:
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Learn how to create your first Unfold admin interface
+  </Card>
+  <Card title="Full Documentation" icon="book" href="https://unfoldadmin.com/docs">
+    Explore all features and configuration options
+  </Card>
+</CardGroup>
+
+<Check>
+  Installation complete! Continue to the Quick Start guide to build your first admin interface.
+</Check>

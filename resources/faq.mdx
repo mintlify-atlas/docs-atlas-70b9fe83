@@ -1,0 +1,432 @@
+---
+title: FAQ
+description: Frequently asked questions about Django Unfold
+icon: messages-question
+---
+
+Answers to common questions about Django Unfold, its features, and usage.
+
+## General Questions
+
+<Accordion title="What is Django Unfold?">
+  Django Unfold is a modern, feature-rich theme for Django Admin that enhances the default admin interface with a beautiful UI, advanced features, and improved workflows. It's built on top of `django.contrib.admin` and works alongside the default admin without requiring any migrations.
+</Accordion>
+
+<Accordion title="Is Django Unfold free?">
+  Yes, Django Unfold is **open source** and free to use under the [MIT License](https://github.com/unfoldadmin/django-unfold/blob/main/LICENSE.md). You can use it in both personal and commercial projects.
+  
+  Professional services like consulting, support, and Studio (advanced features) are available separately for those who need them.
+</Accordion>
+
+<Accordion title="Can I use Unfold with my existing Django project?">
+  Absolutely! Unfold is designed for incremental adoption. You can:
+  - Use it alongside the default Django admin
+  - Migrate models one at a time
+  - Keep existing customizations while gradually adopting Unfold features
+  
+  No database migrations or major refactoring required.
+</Accordion>
+
+<Accordion title="Does Unfold work with Django 5.x?">
+  Yes! Django Unfold supports:
+  - Django 4.2 LTS
+  - Django 5.0
+  - Django 5.1 (latest)
+  
+  See the [changelog](/resources/changelog) for version-specific details.
+</Accordion>
+
+<Accordion title="What Python versions are supported?">
+  - **Django Unfold v0.82.0+**: Python 3.11 or higher
+  - **Earlier versions**: Python 3.10+
+  
+  See the [migration guide](/resources/migration-guide) for upgrade information.
+</Accordion>
+
+## Installation and Setup
+
+<Accordion title="Why isn't Unfold appearing after installation?">
+  The most common issue is the order in `INSTALLED_APPS`. Ensure `"unfold"` comes **before** `"django.contrib.admin"`:
+  
+  ```python
+  INSTALLED_APPS = [
+      "unfold",  # Must be first!
+      "django.contrib.admin",
+      # ... other apps
+  ]
+  ```
+  
+  After fixing, run `python manage.py collectstatic` and clear your browser cache.
+</Accordion>
+
+<Accordion title="Do I need to run migrations after installing Unfold?">
+  No migrations are required! Unfold extends Django's existing admin without modifying your database schema.
+  
+  However, you should run `python manage.py collectstatic` to collect Unfold's static files.
+</Accordion>
+
+<Accordion title="Can I use Unfold in production?">
+  Yes! Django Unfold is production-ready and used by many projects in production environments.
+  
+  Best practices:
+  - Always test in a staging environment first
+  - Use a specific version (avoid `pip install django-unfold` without version pinning)
+  - Run `collectstatic` with `--clear` flag
+  - Review the [troubleshooting guide](/resources/troubleshooting) for production considerations
+</Accordion>
+
+## Features and Functionality
+
+<Accordion title="Can I customize the colors and theme?">
+  Yes! Unfold offers extensive theming options:
+  
+  ```python
+  UNFOLD = {
+      "COLORS": {
+          "primary": {
+              "50": "#...",
+              "100": "#...",
+              # ... other shades
+          },
+      },
+  }
+  ```
+  
+  See the [settings documentation](/configuration/settings) for all customization options.
+</Accordion>
+
+<Accordion title="Does Unfold support dark mode?">
+  Yes! Dark mode is built-in and users can toggle between light and dark themes. The preference is saved in local storage.
+</Accordion>
+
+<Accordion title="Can I add custom dashboard pages?">
+  Yes! Unfold provides tools for creating custom dashboard pages:
+  
+  ```python
+  from unfold.views import UnfoldView
+  
+  class CustomDashboardView(UnfoldView):
+      template_name = "admin/custom_dashboard.html"
+  ```
+  
+  See [custom pages documentation](/advanced/custom-pages) for details.
+</Accordion>
+
+<Accordion title="Does Unfold work with third-party packages?">
+  Yes! Unfold includes built-in support for popular packages:
+  
+  - django-import-export
+  - django-simple-history
+  - django-guardian
+  - django-constance
+  - django-celery-beat
+  - django-modeltranslation
+  - django-money
+  - djangoql
+  - And more!
+  
+  See [integrations](/integrations/overview) for configuration guides.
+</Accordion>
+
+<Accordion title="Can I use the command palette?">
+  Yes! The command palette (keyboard shortcut: Cmd/Ctrl+K) is available by default. It allows quick navigation across models and custom actions.
+  
+  You can customize it in your `UNFOLD` settings or disable it with:
+  
+  ```python
+  UNFOLD = {
+      "SHOW_COMMAND_PALETTE": False,
+  }
+  ```
+</Accordion>
+
+## Customization
+
+<Accordion title="Can I override Unfold templates?">
+  Yes! Create templates in your project following Unfold's structure:
+  
+  ```
+  your_project/
+  ├── templates/
+  │   └── admin/
+  │       └── unfold/
+  │           └── custom_template.html
+  ```
+  
+  Your templates will override Unfold's default templates.
+</Accordion>
+
+<Accordion title="How do I add custom CSS or JavaScript?">
+  Use the `STYLES` and `SCRIPTS` settings:
+  
+  ```python
+  from django.templatetags.static import static
+  
+  UNFOLD = {
+      "STYLES": [
+          lambda request: static("css/custom.css"),
+      ],
+      "SCRIPTS": [
+          lambda request: static("js/custom.js"),
+      ],
+  }
+  ```
+  
+  See [styles and scripts documentation](/configuration/styles-scripts).
+</Accordion>
+
+<Accordion title="Can I customize the sidebar navigation?">
+  Yes! Configure the sidebar in `UNFOLD` settings:
+  
+  ```python
+  UNFOLD = {
+      "SIDEBAR": {
+          "show_search": True,
+          "show_all_applications": True,
+          "navigation": [
+              {
+                  "title": "My Section",
+                  "items": [
+                      {
+                          "title": "Dashboard",
+                          "icon": "dashboard",
+                          "link": reverse_lazy("admin:index"),
+                      },
+                  ],
+              },
+          ],
+      },
+  }
+  ```
+</Accordion>
+
+## Performance
+
+<Accordion title="Will Unfold slow down my admin?">
+  Unfold is designed for performance. However, large datasets may require optimization:
+  
+  - Use `select_related()` and `prefetch_related()` in `get_queryset()`
+  - Enable infinite pagination for large lists
+  - Use paginated inlines
+  - Optimize `list_display` fields
+  
+  See the [performance section](/resources/troubleshooting#performance-issues) in troubleshooting.
+</Accordion>
+
+<Accordion title="How can I optimize admin list views?">
+  ```python
+  from unfold.admin import ModelAdmin
+  from unfold.paginator import UnfoldInfinitePaginator
+  
+  class MyModelAdmin(ModelAdmin):
+      paginator = UnfoldInfinitePaginator
+      show_full_result_count = False
+      list_select_related = ['foreign_key']
+      
+      def get_queryset(self, request):
+          return super().get_queryset(request).prefetch_related('many_to_many')
+  ```
+</Accordion>
+
+## Troubleshooting
+
+<Accordion title="Static files aren't loading. What should I do?">
+  1. Run `python manage.py collectstatic --clear`
+  2. Clear browser cache (Ctrl+Shift+R or Cmd+Shift+R)
+  3. Verify `STATIC_URL` and `STATIC_ROOT` settings
+  4. Check web server configuration for serving static files
+  
+  See [troubleshooting static files](/resources/troubleshooting#static-files-not-loading).
+</Accordion>
+
+<Accordion title="Forms aren't styled correctly. How do I fix this?">
+  Ensure you're using Unfold's ModelAdmin:
+  
+  ```python
+  from unfold.admin import ModelAdmin  # Not django.contrib.admin
+  
+  @admin.register(MyModel)
+  class MyModelAdmin(ModelAdmin):  # Not admin.ModelAdmin
+      pass
+  ```
+</Accordion>
+
+<Accordion title="The sidebar is empty. Why?">
+  You need to configure sidebar navigation in your settings:
+  
+  ```python
+  UNFOLD = {
+      "SIDEBAR": {
+          "navigation": [
+              # Your navigation items
+          ],
+      },
+  }
+  ```
+  
+  Or enable `show_all_applications: True` to display all registered models.
+</Accordion>
+
+## Migration and Compatibility
+
+<Accordion title="Can I run Unfold alongside the default Django admin?">
+  Yes! This is called "parallel admin" and is useful during migration:
+  
+  ```python
+  # urls.py
+  urlpatterns = [
+      path('admin/', unfold_admin_site.urls),      # Unfold admin
+      path('django-admin/', admin.site.urls),       # Default admin
+  ]
+  ```
+  
+  See the [parallel admin guide](https://unfoldadmin.com/blog/migrating-django-admin-unfold/).
+</Accordion>
+
+<Accordion title="Will Unfold break my existing admin customizations?">
+  Most customizations continue to work, but some may need adjustments:
+  
+  - **Custom ModelAdmin methods**: Usually work without changes
+  - **Custom templates**: May need to use Unfold's template structure
+  - **Custom CSS/JS**: May need updates for Unfold's class names
+  
+  Test thoroughly in a development environment first.
+</Accordion>
+
+<Accordion title="How do I upgrade to the latest version?">
+  ```bash
+  pip install --upgrade django-unfold
+  python manage.py collectstatic --noinput --clear
+  ```
+  
+  Review the [migration guide](/resources/migration-guide) and [changelog](/resources/changelog) for breaking changes.
+</Accordion>
+
+## Components and UI
+
+<Accordion title="Can I use Unfold components outside the admin?">
+  Yes! Unfold's components can be used in custom templates:
+  
+  ```django
+  {% load unfold %}
+  
+  {% component "card" title="My Card" %}
+      Card content here
+  {% endcomponent %}
+  ```
+  
+  See [components documentation](/components/overview).
+</Accordion>
+
+<Accordion title="How do I add charts to my dashboard?">
+  Use Unfold's Chart component:
+  
+  ```python
+  from unfold.components import Chart
+  
+  Chart(
+      chart_type="line",
+      data={
+          "labels": ["Jan", "Feb", "Mar"],
+          "datasets": [{"data": [10, 20, 30]}]
+      }
+  )
+  ```
+  
+  See [chart documentation](/components/chart).
+</Accordion>
+
+## Support and Community
+
+<Accordion title="Where can I get help?">
+  Multiple support channels are available:
+  
+  - **Discord**: [Join our community](https://discord.gg/9sQj9MEbNz) for real-time chat
+  - **GitHub Issues**: [Report bugs or request features](https://github.com/unfoldadmin/django-unfold/issues)
+  - **Documentation**: Search these docs for guides and examples
+  - **Professional Support**: [Get expert help](https://unfoldadmin.com/support/)
+</Accordion>
+
+<Accordion title="How can I contribute to Unfold?">
+  Contributions are welcome! You can:
+  
+  - Report bugs or suggest features on GitHub
+  - Submit pull requests with fixes or features
+  - Improve documentation
+  - Help others on Discord
+  
+  See the [contributing guide](/resources/contributing) to get started.
+</Accordion>
+
+<Accordion title="Is there commercial support available?">
+  Yes! Professional services include:
+  
+  - **Consulting**: Django architecture and Unfold integration
+  - **Support**: Implementation help with 1:1 calls
+  - **Studio**: Advanced features and custom dashboards
+  
+  Learn more at [unfoldadmin.com](https://unfoldadmin.com).
+</Accordion>
+
+## Advanced Topics
+
+<Accordion title="Can I create custom admin actions?">
+  Yes! Unfold supports all Django admin action types plus custom styling:
+  
+  ```python
+  from unfold.decorators import action
+  
+  class MyModelAdmin(ModelAdmin):
+      @action(description="Custom Action", url_path="custom")
+      def custom_action(self, request, queryset):
+          # Your action logic
+          pass
+  ```
+  
+  See [actions documentation](/actions/overview).
+</Accordion>
+
+<Accordion title="How do I create tabbed interfaces?">
+  Unfold supports multiple tab types:
+  
+  - **Fieldset tabs**: Group fieldsets into tabs
+  - **Inline tabs**: Organize inlines in tabs
+  - **Custom tabs**: Create custom tab navigation
+  
+  See [inline tabs](/inlines/inline-tabs), [fieldset tabs](/inlines/fieldset-tabs), and [model tabs](/inlines/model-tabs) documentation.
+</Accordion>
+
+<Accordion title="Can I use conditional fields?">
+  Yes! Show/hide fields based on other field values:
+  
+  ```python
+  class MyModelAdmin(ModelAdmin):
+      conditional_fields = {
+          "field_name": {
+              "condition": "other_field == 'value'",
+              "action": "show",
+          },
+      }
+  ```
+  
+  See [conditional fields documentation](/forms/conditional-fields).
+</Accordion>
+
+## Still Have Questions?
+
+If your question isn't answered here:
+
+<CardGroup cols={2}>
+  <Card title="Search Documentation" icon="magnifying-glass" href="/">
+    Browse the full documentation
+  </Card>
+  <Card title="Ask on Discord" icon="discord" href="https://discord.gg/9sQj9MEbNz">
+    Get help from the community
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/unfoldadmin/django-unfold/discussions">
+    Start a discussion
+  </Card>
+  <Card title="Professional Support" icon="headset" href="https://unfoldadmin.com/support/">
+    Get expert assistance
+  </Card>
+</CardGroup>

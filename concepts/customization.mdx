@@ -1,0 +1,678 @@
+---
+title: "Customization"
+description: "Comprehensive guide to customizing Django Unfold's appearance and behavior"
+---
+
+## Overview
+
+Django Unfold offers extensive customization options through a centralized settings system, template overrides, and programmatic hooks. All customization is done through the `UNFOLD` dictionary in your Django settings.
+
+```python
+# settings.py
+UNFOLD = {
+    "SITE_TITLE": "My Admin",
+    "SITE_HEADER": "My Application",
+    "COLORS": {
+        "primary": {
+            "500": "oklch(62.7% .265 303.9)",
+        }
+    }
+}
+```
+
+<Info>
+You only need to specify settings that differ from defaults. Unfold merges your configuration with sensible defaults.
+</Info>
+
+## Site Branding
+
+Customize the identity and appearance of your admin site:
+
+### Basic Text Content
+
+```python
+UNFOLD = {
+    # Browser tab title
+    "SITE_TITLE": "My Company Admin",
+    
+    # Header text in the admin
+    "SITE_HEADER": "My Company",
+    
+    # Subheader below main header
+    "SITE_SUBHEADER": "Administration Portal",
+    
+    # Link when clicking the site header
+    "SITE_URL": "/",
+}
+```
+
+### Logos and Icons
+
+<Tabs>
+  <Tab title="Logo">
+    Set a custom logo that appears in the sidebar:
+    
+    ```python
+    UNFOLD = {
+        # Single logo for both themes
+        "SITE_LOGO": "/static/logo.svg",
+        
+        # Or different logos for light/dark mode
+        "SITE_LOGO": {
+            "light": "/static/logo-light.svg",
+            "dark": "/static/logo-dark.svg",
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Icon">
+    Small icon used in collapsed sidebar:
+    
+    ```python
+    UNFOLD = {
+        # Single icon
+        "SITE_ICON": "/static/icon.svg",
+        
+        # Or theme-specific
+        "SITE_ICON": {
+            "light": "/static/icon-light.svg",
+            "dark": "/static/icon-dark.svg",
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Symbol">
+    Text or emoji used when no icon is set:
+    
+    ```python
+    UNFOLD = {
+        "SITE_SYMBOL": "🚀",  # Or any text
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Favicon">
+    Browser favicon with multiple sizes:
+    
+    ```python
+    UNFOLD = {
+        "SITE_FAVICONS": [
+            {
+                "href": "/static/favicon.ico",
+                "rel": "icon",
+                "type": "image/x-icon",
+            },
+            {
+                "href": "/static/favicon-32x32.png",
+                "rel": "icon",
+                "sizes": "32x32",
+                "type": "image/png",
+            },
+        ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Site Dropdown
+
+Add a dropdown menu in the header:
+
+```python
+UNFOLD = {
+    "SITE_DROPDOWN": [
+        {
+            "title": "Main Site",
+            "link": "/",
+            "icon": "home",
+        },
+        {
+            "title": "Documentation",
+            "link": "/docs/",
+            "icon": "book",
+            "attrs": {"target": "_blank"},  # Open in new tab
+        },
+    ]
+}
+```
+
+## Navigation Customization
+
+### Sidebar Navigation
+
+Create a custom navigation structure:
+
+```python
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Content Management",
+                "icon": "article",
+                "items": [
+                    {
+                        "title": "Articles",
+                        "link": "/admin/blog/article/",
+                        "icon": "description",
+                    },
+                    {
+                        "title": "Categories",
+                        "link": "/admin/blog/category/",
+                    },
+                ],
+            },
+            {
+                "title": "Users",
+                "icon": "people",
+                "link": "/admin/auth/user/",
+                "badge": "myapp.utils.get_user_count",  # Dynamic badge
+            },
+        ],
+    }
+}
+```
+
+<Accordion title="Dynamic Navigation with Callbacks">
+  Use functions for dynamic links and permissions:
+  
+  ```python
+  # myapp/utils.py
+  def get_dashboard_link(request):
+      if request.user.is_superuser:
+          return "/admin/dashboard/"
+      return "/admin/my-dashboard/"
+  
+  def can_access_reports(request):
+      return request.user.has_perm('reports.view_report')
+  
+  # settings.py
+  UNFOLD = {
+      "SIDEBAR": {
+          "navigation": [
+              {
+                  "title": "Dashboard",
+                  "link": get_dashboard_link,  # Dynamic link
+              },
+              {
+                  "title": "Reports",
+                  "link": "/admin/reports/",
+                  "permission": can_access_reports,  # Conditional display
+              },
+          ],
+      }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Nested Navigation">
+  Create multi-level navigation:
+  
+  ```python
+  UNFOLD = {
+      "SIDEBAR": {
+          "navigation": [
+              {
+                  "title": "E-commerce",
+                  "items": [
+                      {
+                          "title": "Products",
+                          "items": [
+                              {
+                                  "title": "All Products",
+                                  "link": "/admin/shop/product/",
+                              },
+                              {
+                                  "title": "Categories",
+                                  "link": "/admin/shop/category/",
+                              },
+                          ],
+                      },
+                  ],
+              },
+          ],
+      }
+  }
+  ```
+</Accordion>
+
+### Tabs
+
+Add tab navigation at the top of pages:
+
+```python
+UNFOLD = {
+    "TABS": [
+        {
+            "items": [
+                {
+                    "title": "Dashboard",
+                    "link": "/admin/",
+                    "icon": "dashboard",
+                },
+                {
+                    "title": "Orders",
+                    "link": "/admin/orders/order/",
+                    "icon": "shopping_cart",
+                },
+                {
+                    "title": "Customers",
+                    "link": "/admin/customers/customer/",
+                    "permission": "customers.view_customer",
+                },
+            ],
+        },
+    ],
+}
+```
+
+## Search and Command Palette
+
+Configure the command palette and search functionality:
+
+```python
+UNFOLD = {
+    "COMMAND": {
+        # Enable model search in command palette
+        "search_models": True,
+        
+        # Or limit to specific models
+        # "search_models": ["blog.Article", "auth.User"],
+        
+        # Show search history
+        "show_history": True,
+        
+        # Add custom search callback
+        "search_callback": "myapp.utils.custom_search",
+    },
+}
+```
+
+### Custom Search Callback
+
+```python
+# myapp/utils.py
+from unfold.dataclasses import SearchResult
+
+def custom_search(request, search_term):
+    """Add custom search results to command palette."""
+    results = []
+    
+    # Search external system
+    external_results = search_external_api(search_term)
+    
+    for item in external_results:
+        results.append(
+            SearchResult(
+                title=item.title,
+                description=item.description,
+                link=item.url,
+                icon="link",
+            )
+        )
+    
+    return results
+```
+
+## Dashboard Customization
+
+Customize the dashboard (index) page:
+
+```python
+# myapp/utils.py
+def dashboard_callback(request, context):
+    """Add custom data to dashboard context."""
+    context.update({
+        "total_users": User.objects.count(),
+        "recent_orders": Order.objects.order_by('-created_at')[:5],
+        "revenue_today": calculate_revenue_today(),
+    })
+    return context
+
+# settings.py
+UNFOLD = {
+    "DASHBOARD_CALLBACK": "myapp.utils.dashboard_callback",
+}
+```
+
+Create a custom dashboard template:
+
+```html
+{# templates/admin/index.html #}
+{% extends "admin/index.html" %}
+
+{% block content %}
+  {{ block.super }}
+  
+  <div class="grid grid-cols-3 gap-4 mt-4">
+    <div class="bg-white p-4 rounded shadow">
+      <h3 class="text-lg font-semibold">Total Users</h3>
+      <p class="text-3xl">{{ total_users }}</p>
+    </div>
+    
+    <div class="bg-white p-4 rounded shadow">
+      <h3 class="text-lg font-semibold">Revenue Today</h3>
+      <p class="text-3xl">${{ revenue_today }}</p>
+    </div>
+  </div>
+{% endblock %}
+```
+
+## User Account Menu
+
+Customize the user account dropdown:
+
+```python
+UNFOLD = {
+    "ACCOUNT": {
+        "navigation": [
+            {
+                "title": "My Profile",
+                "link": "/admin/auth/user/{{ request.user.pk }}/change/",
+            },
+            {
+                "title": "Settings",
+                "link": "/admin/settings/",
+            },
+        ],
+    },
+}
+```
+
+## Language Settings
+
+Configure multi-language support:
+
+```python
+UNFOLD = {
+    # Show language switcher
+    "SHOW_LANGUAGES": True,
+    
+    # Map language codes to flag emojis
+    "LANGUAGE_FLAGS": {
+        "en": "🇬🇧",
+        "es": "🇪🇸",
+        "fr": "🇫🇷",
+        "de": "🇩🇪",
+    },
+    
+    # Configure language menu
+    "LANGUAGES": {
+        # Custom action for language change
+        "action": "myapp.utils.set_language",
+        
+        # Additional navigation items
+        "navigation": [
+            {
+                "title": "Language Settings",
+                "link": "/admin/settings/language/",
+            },
+        ],
+    },
+}
+```
+
+## Behavior Options
+
+```python
+UNFOLD = {
+    # Show view on site button
+    "SHOW_VIEW_ON_SITE": True,
+    
+    # Show object history
+    "SHOW_HISTORY": True,
+    
+    # Show back button
+    "SHOW_BACK_BUTTON": True,
+}
+```
+
+## Environment Indicators
+
+Show environment badges in the header:
+
+```python
+UNFOLD = {
+    # Environment name (shows as badge)
+    "ENVIRONMENT": "production",
+    
+    # Or use a callback for dynamic environment
+    # "ENVIRONMENT": "myapp.utils.get_environment",
+    
+    # Prefix for browser tab title
+    "ENVIRONMENT_TITLE_PREFIX": "[PROD]",
+}
+```
+
+```python
+# myapp/utils.py
+import os
+
+def get_environment(request):
+    env = os.getenv('ENVIRONMENT', 'development')
+    colors = {
+        'production': {'color': 'red'},
+        'staging': {'color': 'yellow'},
+        'development': {'color': 'green'},
+    }
+    return {**colors.get(env, {}), 'title': env.upper()}
+```
+
+## Custom Assets
+
+Add custom CSS and JavaScript:
+
+```python
+UNFOLD = {
+    "STYLES": [
+        lambda request: "/static/css/custom.css",
+    ],
+    
+    "SCRIPTS": [
+        lambda request: "/static/js/custom.js",
+    ],
+}
+```
+
+<Warning>
+Custom CSS should use Tailwind classes to maintain consistency. Avoid conflicting with Unfold's styles.
+</Warning>
+
+## Form Customization
+
+Override default form widget classes:
+
+```python
+UNFOLD = {
+    "FORMS": {
+        "classes": {
+            "text_input": "border rounded px-3 py-2 custom-class",
+            "checkbox": "custom-checkbox-class",
+            "button": "custom-button-class",
+            "radio": "custom-radio-class",
+            "switch": "custom-switch-class",
+            "file": "custom-file-class",
+        }
+    }
+}
+```
+
+<Info>
+This is advanced customization. Most users won't need to modify form classes.
+</Info>
+
+## Login Page Customization
+
+```python
+UNFOLD = {
+    "LOGIN": {
+        # Background image for login page
+        "image": "/static/images/login-bg.jpg",
+        
+        # Or use callback for dynamic image
+        # "image": "myapp.utils.get_login_image",
+        
+        # Custom redirect after login
+        "redirect_after": "/admin/dashboard/",
+        
+        # Custom login form
+        "form": "myapp.forms.CustomAuthenticationForm",
+    },
+}
+```
+
+### Custom Login Form
+
+```python
+# myapp/forms.py
+from unfold.forms import AuthenticationForm
+
+class CustomAuthenticationForm(AuthenticationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['username'].widget.attrs['placeholder'] = 'Email address'
+        self.fields['password'].widget.attrs['placeholder'] = 'Password'
+```
+
+## Extension Configurations
+
+Configure third-party integrations:
+
+```python
+UNFOLD = {
+    "EXTENSIONS": {
+        # django-modeltranslation
+        "modeltranslation": {
+            "flags": {
+                "en": "🇬🇧",
+                "es": "🇪🇸",
+            }
+        },
+    },
+}
+```
+
+## Dynamic Customization
+
+Use callbacks for request-dependent customization:
+
+```python
+# myapp/utils.py
+def get_site_title(request):
+    if request.user.is_superuser:
+        return "Admin - Full Access"
+    return "Admin - Limited Access"
+
+def get_navigation(request):
+    base_nav = [
+        {
+            "title": "Dashboard",
+            "link": "/admin/",
+        }
+    ]
+    
+    if request.user.is_staff:
+        base_nav.append({
+            "title": "Users",
+            "link": "/admin/auth/user/",
+        })
+    
+    return base_nav
+
+# settings.py
+UNFOLD = {
+    "SITE_TITLE": get_site_title,
+    "SIDEBAR": {
+        "navigation": get_navigation,
+    },
+}
+```
+
+<Tip>
+Callbacks receive the request object, allowing user-specific or permission-based customization.
+</Tip>
+
+## Badge Callbacks
+
+Add dynamic badges to navigation items:
+
+```python
+# myapp/utils.py
+def get_pending_count(request):
+    return Order.objects.filter(status='pending').count()
+
+# settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "navigation": [
+            {
+                "title": "Pending Orders",
+                "link": "/admin/orders/order/?status=pending",
+                "badge": "myapp.utils.get_pending_count",
+            },
+        ],
+    },
+}
+```
+
+## Complete Customization Example
+
+```python
+# settings.py
+UNFOLD = {
+    # Branding
+    "SITE_TITLE": "E-Commerce Admin",
+    "SITE_HEADER": "My Store",
+    "SITE_LOGO": {
+        "light": "/static/logo-light.svg",
+        "dark": "/static/logo-dark.svg",
+    },
+    
+    # Navigation
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,
+        "navigation": [
+            {
+                "title": "Sales",
+                "icon": "shopping_cart",
+                "items": [
+                    {
+                        "title": "Orders",
+                        "link": "/admin/orders/order/",
+                        "badge": "myapp.utils.get_order_count",
+                    },
+                    {
+                        "title": "Customers",
+                        "link": "/admin/customers/customer/",
+                    },
+                ],
+            },
+        ],
+    },
+    
+    # Dashboard
+    "DASHBOARD_CALLBACK": "myapp.utils.dashboard_callback",
+    
+    # Search
+    "COMMAND": {
+        "search_models": ["orders.Order", "customers.Customer"],
+        "show_history": True,
+    },
+    
+    # Environment
+    "ENVIRONMENT": "myapp.utils.get_environment",
+    
+    # Behavior
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+}
+```
+
+<Check>
+This configuration creates a fully customized admin experience with branding, navigation, and dynamic content.
+</Check>

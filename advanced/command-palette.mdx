@@ -1,0 +1,461 @@
+---
+title: Command Palette
+description: Master the Django Unfold command palette for quick navigation and search. Configure model search, custom callbacks, history tracking, and optimize search functionality for enhanced admin productivity.
+---
+
+# Command Palette
+
+The command palette is a powerful search and navigation tool in Django Unfold that provides instant access to applications, models, and data. Activate it with keyboard shortcuts for rapid navigation through your admin interface.
+
+## Activation
+
+Access the command palette using keyboard shortcuts:
+
+- **macOS**: `⌘ + K`
+- **Windows/Linux**: `Ctrl + K`
+
+<Frame>
+  <img src="/static/docs/command/command-results.webp" alt="Command palette showing search results" />
+</Frame>
+
+## Basic Configuration
+
+By default, the command palette searches only application and model names. To enable more comprehensive search functionality, configure the `COMMAND` settings.
+
+```python settings.py
+UNFOLD = {
+    "COMMAND": {
+        "search_models": False,  # Search through model data
+        "search_callback": None,  # Custom search function
+        "show_history": False,    # Show search history
+    },
+}
+```
+
+## Model Data Search
+
+Enable searching through actual model records by setting `search_models` to `True`.
+
+<Warning>
+Enabling model search can be database-intensive as it queries across all models. Use with caution in large applications.
+</Warning>
+
+### Enable for All Models
+
+```python settings.py
+UNFOLD = {
+    "COMMAND": {
+        "search_models": True,
+    },
+}
+```
+
+### Configure Search Fields
+
+For a model to be searchable, define `search_fields` in its admin class:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+from django.contrib import admin
+from .models import Customer, Product
+
+@admin.register(Customer)
+class CustomerAdmin(ModelAdmin):
+    search_fields = [
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+    ]
+    list_display = ["full_name", "email", "created_at"]
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    search_fields = [
+        "name",
+        "sku",
+        "description",
+    ]
+    list_display = ["name", "sku", "price", "stock"]
+```
+
+### Search Specific Models Only
+
+Restrict search to specific models for better performance:
+
+```python settings.py
+UNFOLD = {
+    "COMMAND": {
+        "search_models": [
+            "customers.customer",
+            "products.product",
+            "orders.order",
+        ],
+    },
+}
+```
+
+<Tip>
+Use the format `"app_label.model_name"` (lowercase) when specifying models.
+</Tip>
+
+### Dynamic Model Selection
+
+Use a callback function to dynamically determine which models are searchable:
+
+```python settings.py
+UNFOLD = {
+    "COMMAND": {
+        "search_models": "app.utils.get_searchable_models",
+    },
+}
+```
+
+```python utils.py
+def get_searchable_models(request):
+    """
+    Return list of searchable models based on user permissions.
+    """
+    models = []
+    
+    # Admins can search all models
+    if request.user.is_superuser:
+        models.extend([
+            "customers.customer",
+            "products.product",
+            "orders.order",
+            "invoices.invoice",
+        ])
+    # Regular users have limited search
+    else:
+        models.extend([
+            "customers.customer",
+            "orders.order",
+        ])
+    
+    return models
+```
+
+## Custom Search Callback
+
+Extend the command palette with custom search sources such as external APIs, documentation, or third-party services.
+
+### Basic Implementation
+
+<Steps>
+  <Step title="Create the Callback Function">
+    Define a function that returns a list of `SearchResult` objects.
+
+    ```python utils.py
+    from unfold.dataclasses import SearchResult
+
+    def search_callback(request, search_term):
+        """
+        Inject custom search results into the command palette.
+        
+        Args:
+            request: The current HTTP request
+            search_term: The user's search query
+            
+        Returns:
+            List of SearchResult objects
+        """
+        results = []
+        
+        # Search external API
+        if "api" in search_term.lower():
+            results.append(
+                SearchResult(
+                    title="API Documentation",
+                    description="View API endpoints and usage",
+                    link="https://api.example.com/docs",
+                    icon="code",
+                )
+            )
+        
+        # Search help documentation
+        if "help" in search_term.lower():
+            results.append(
+                SearchResult(
+                    title="Help Center",
+                    description="Get help and support",
+                    link="/help/",
+                    icon="help",
+                )
+            )
+        
+        return results
+    ```
+  </Step>
+
+  <Step title="Register the Callback">
+    Add the callback path to your settings.
+
+    ```python settings.py
+    UNFOLD = {
+        "COMMAND": {
+            "search_callback": "app.utils.search_callback",
+        },
+    }
+    ```
+  </Step>
+</Steps>
+
+### Advanced Custom Search
+
+Integrate external services or perform complex searches:
+
+```python utils.py
+import requests
+from django.urls import reverse
+from unfold.dataclasses import SearchResult
+
+def search_callback(request, search_term):
+    """
+    Advanced search with external API and database queries.
+    """
+    results = []
+    
+    # Search Zendesk tickets
+    if request.user.has_perm('support.view_tickets'):
+        tickets = search_zendesk(search_term, request.user)
+        for ticket in tickets:
+            results.append(
+                SearchResult(
+                    title=f"Ticket #{ticket['id']}: {ticket['subject']}",
+                    description=f"Status: {ticket['status']}",
+                    link=ticket['url'],
+                    icon="support",
+                )
+            )
+    
+    # Search internal knowledge base
+    if 'kb' in search_term.lower():
+        articles = KnowledgeBase.objects.filter(
+            title__icontains=search_term
+        )[:5]
+        
+        for article in articles:
+            results.append(
+                SearchResult(
+                    title=article.title,
+                    description=article.summary,
+                    link=reverse('admin:kb_article_change', args=[article.pk]),
+                    icon="article",
+                )
+            )
+    
+    # Search GitHub issues
+    if request.user.is_staff and 'issue' in search_term.lower():
+        issues = search_github_issues(search_term)
+        for issue in issues:
+            results.append(
+                SearchResult(
+                    title=issue['title'],
+                    description=f"#{issue['number']} - {issue['state']}",
+                    link=issue['html_url'],
+                    icon="bug_report",
+                )
+            )
+    
+    return results
+
+def search_zendesk(query, user):
+    """Search Zendesk API for tickets."""
+    # Implementation details...
+    return []
+
+def search_github_issues(query):
+    """Search GitHub API for issues."""
+    # Implementation details...
+    return []
+```
+
+### SearchResult Parameters
+
+<ResponseField name="title" type="string" required>
+  Main text displayed in the search result
+</ResponseField>
+
+<ResponseField name="description" type="string" required>
+  Secondary text providing additional context
+</ResponseField>
+
+<ResponseField name="link" type="string" required>
+  URL to navigate to when the result is clicked
+</ResponseField>
+
+<ResponseField name="icon" type="string">
+  Material Icon name from [Google Fonts Icons](https://fonts.google.com/icons)
+</ResponseField>
+
+## Search History
+
+Enable search history to let users quickly access their previous searches.
+
+<Frame>
+  <img src="/static/docs/command/command-history.webp" alt="Command palette with search history" />
+</Frame>
+
+### Enable History
+
+```python settings.py
+UNFOLD = {
+    "COMMAND": {
+        "show_history": True,
+    },
+}
+```
+
+<Warning>
+Search history is stored in the browser's `localStorage`. Consider security implications before enabling this feature, as sensitive search terms may be exposed if localStorage is compromised.
+</Warning>
+
+### Security Considerations
+
+<AccordionGroup>
+  <Accordion title="Data Storage">
+    Search history is stored client-side in `localStorage`, which:
+    - Persists across browser sessions
+    - Can be accessed by JavaScript code
+    - Is not encrypted by default
+    - Remains until explicitly cleared
+  </Accordion>
+
+  <Accordion title="Best Practices">
+    When enabling search history:
+    - Inform users that search history is stored locally
+    - Implement periodic cleanup of old history
+    - Avoid searching for sensitive data (passwords, tokens)
+    - Consider disabling for high-security environments
+  </Accordion>
+
+  <Accordion title="Clear History">
+    Users can clear their search history by:
+    - Clearing browser data/localStorage
+    - Using browser developer tools
+    - Implementing a custom "Clear History" button
+  </Accordion>
+</AccordionGroup>
+
+## Sidebar Integration
+
+Replace the default sidebar search with the command palette.
+
+```python settings.py
+UNFOLD = {
+    "SIDEBAR": {
+        "show_search": True,      # Show search input
+        "command_search": True,   # Use command palette instead of sidebar search
+    },
+}
+```
+
+## Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Limit Search Results">
+    Restrict the number of results returned to improve performance.
+
+    ```python admin.py
+    class CustomerAdmin(ModelAdmin):
+        search_fields = ["name", "email"]
+        
+        def get_search_results(self, request, queryset, search_term):
+            queryset, use_distinct = super().get_search_results(
+                request, queryset, search_term
+            )
+            # Limit to first 50 results
+            return queryset[:50], use_distinct
+    ```
+  </Accordion>
+
+  <Accordion title="Optimize Database Queries">
+    Use database indexes and optimize search fields.
+
+    ```python models.py
+    class Customer(models.Model):
+        name = models.CharField(max_length=100, db_index=True)
+        email = models.EmailField(db_index=True)
+        
+        class Meta:
+            indexes = [
+                models.Index(fields=['name', 'email']),
+            ]
+    ```
+  </Accordion>
+
+  <Accordion title="Cache Search Results">
+    Implement caching for frequently accessed data.
+
+    ```python utils.py
+    from django.core.cache import cache
+    
+    def search_callback(request, search_term):
+        cache_key = f"search_{search_term}"
+        results = cache.get(cache_key)
+        
+        if results is None:
+            results = perform_expensive_search(search_term)
+            cache.set(cache_key, results, 300)  # Cache for 5 minutes
+        
+        return results
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Pagination
+
+The command palette uses infinite scrolling with a default page size of 100 results. When the last item becomes visible, the next page is automatically loaded.
+
+<Note>
+Pagination is handled automatically by the command palette. No additional configuration is required.
+</Note>
+
+## Complete Configuration Example
+
+```python settings.py
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "COMMAND": {
+        # Enable searching through specific models
+        "search_models": [
+            "customers.customer",
+            "products.product",
+            "orders.order",
+        ],
+        
+        # Or use a callback for dynamic model selection
+        # "search_models": "app.utils.get_searchable_models",
+        
+        # Add custom search sources
+        "search_callback": "app.utils.search_callback",
+        
+        # Enable search history
+        "show_history": True,
+    },
+    
+    "SIDEBAR": {
+        "show_search": True,
+        "command_search": True,  # Use command palette for sidebar search
+    },
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Sidebar Navigation" icon="bars" href="/docs/advanced/sidebar-navigation">
+    Configure sidebar navigation and search
+  </Card>
+  <Card title="ModelAdmin Options" icon="sliders" href="/docs/configuration/modeladmin">
+    Learn about ModelAdmin search configuration
+  </Card>
+  <Card title="Settings" icon="gear" href="/docs/configuration/settings">
+    View all available configuration options
+  </Card>
+  <Card title="Custom Pages" icon="file" href="/docs/advanced/custom-pages">
+    Create custom pages accessible via command palette
+  </Card>
+</CardGroup>

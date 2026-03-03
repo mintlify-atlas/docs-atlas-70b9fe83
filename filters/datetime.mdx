@@ -1,0 +1,527 @@
+---
+title: 'Date & Time Filters'
+description: 'Date and datetime range pickers for temporal filtering in Django admin'
+icon: 'calendar'
+---
+
+## Overview
+
+Date and time filters provide intuitive calendar-based interfaces for filtering by date ranges. They include built-in date pickers and support both `DateField` and `DateTimeField` filtering.
+
+<Info>
+These filters use Django's built-in date picker widgets with enhanced Unfold styling.
+</Info>
+
+## Available Datetime Filters
+
+<CardGroup cols={2}>
+  <Card title="RangeDateFilter" icon="calendar-days">
+    Date range picker for DateField
+  </Card>
+  
+  <Card title="RangeDateTimeFilter" icon="calendar-clock">
+    Date and time range picker for DateTimeField
+  </Card>
+</CardGroup>
+
+## RangeDateFilter
+
+Filter by date range with a calendar picker interface.
+
+### Basic Usage
+
+```python models.py
+from django.db import models
+
+
+class Event(models.Model):
+    name = models.CharField(max_length=200)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    created_at = models.DateField(auto_now_add=True)
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import RangeDateFilter
+
+from .models import Event
+
+
+@admin.register(Event)
+class EventAdmin(ModelAdmin):
+    list_display = ["name", "start_date", "end_date", "created_at"]
+    list_filter = [
+        ("start_date", RangeDateFilter),
+        ("created_at", RangeDateFilter),
+    ]
+```
+
+### User Interface
+
+The filter creates two date inputs:
+- **From**: Start date (greater than or equal to)
+- **To**: End date (less than or equal to)
+
+Both inputs include a calendar icon that opens a date picker.
+
+<Tip>
+Users can either type dates directly (YYYY-MM-DD format) or click the calendar icon to pick dates visually.
+</Tip>
+
+### Date Range Queries
+
+```python
+# User selects:
+# From: 2024-01-01
+# To: 2024-01-31
+
+# Generates query:
+queryset.filter(
+    start_date__gte=date(2024, 1, 1),
+    start_date__lte=date(2024, 1, 31)
+)
+```
+
+### Partial Ranges
+
+Users can specify only start or end date:
+
+```python
+# Only "From: 2024-01-01" entered
+queryset.filter(start_date__gte=date(2024, 1, 1))
+
+# Only "To: 2024-12-31" entered
+queryset.filter(start_date__lte=date(2024, 12, 31))
+```
+
+## RangeDateTimeFilter
+
+Filter by date and time range with separate date and time pickers.
+
+### Basic Usage
+
+```python models.py
+from django.db import models
+
+
+class Booking(models.Model):
+    customer = models.CharField(max_length=200)
+    check_in = models.DateTimeField()
+    check_out = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeDateTimeFilter
+
+
+@admin.register(Booking)
+class BookingAdmin(ModelAdmin):
+    list_display = ["customer", "check_in", "check_out", "created_at"]
+    list_filter = [
+        ("check_in", RangeDateTimeFilter),
+        ("created_at", RangeDateTimeFilter),
+    ]
+```
+
+### User Interface
+
+The filter creates four inputs:
+- **From Date**: Start date
+- **From Time**: Start time (HH:MM:SS format)
+- **To Date**: End date
+- **To Time**: End time (HH:MM:SS format)
+
+### DateTime Range Queries
+
+```python
+# User enters:
+# From Date: 2024-01-01, From Time: 09:00:00
+# To Date: 2024-01-31, To Time: 17:00:00
+
+# Generates query:
+queryset.filter(
+    check_in__gte=datetime(2024, 1, 1, 9, 0, 0),
+    check_in__lte=datetime(2024, 1, 31, 17, 0, 0)
+)
+```
+
+<Note>
+Both date and time must be provided for each range endpoint. If only date is entered, the filter won't apply.
+</Note>
+
+## Custom Parameter Names
+
+Override default parameter names:
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeDateFilter
+
+
+class CustomDateFilter(RangeDateFilter):
+    parameter_name = "custom_date"
+
+
+@admin.register(Event)
+class EventAdmin(ModelAdmin):
+    list_filter = [
+        ("start_date", CustomDateFilter),
+    ]
+```
+
+This creates URL parameters:
+- `custom_date_from`
+- `custom_date_to`
+
+## Date Format Handling
+
+### Input Formats
+
+Dates are parsed using Django's utilities:
+
+```python admin.py
+# Accepted formats for RangeDateFilter:
+# - 2024-01-15
+# - 2024/01/15
+# - 01/15/2024 (depending on Django settings)
+
+# For RangeDateTimeFilter:
+# Date: 2024-01-15
+# Time: 14:30:00 or 14:30
+```
+
+### Timezone Awareness
+
+<Warning>
+For `DateTimeField` with `USE_TZ=True`, times are interpreted in the user's timezone (if available) or server timezone.
+</Warning>
+
+```python settings.py
+USE_TZ = True
+TIME_ZONE = 'America/New_York'
+```
+
+```python admin.py
+# Input: 2024-01-15 14:00:00
+# Stored as: 2024-01-15 19:00:00 UTC (if server timezone is EST)
+```
+
+## Advanced Examples
+
+### Filter with Custom Queryset Logic
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeDateFilter
+
+
+class RecentEventsFilter(RangeDateFilter):
+    def queryset(self, request, queryset):
+        # Get the filtered queryset from parent
+        queryset = super().queryset(request, queryset)
+        
+        if queryset is not None:
+            # Add additional filtering
+            return queryset.filter(status="active")
+        
+        return queryset
+
+
+@admin.register(Event)
+class EventAdmin(ModelAdmin):
+    list_filter = [
+        ("start_date", RecentEventsFilter),
+    ]
+```
+
+### Multiple Date Filters
+
+Combine multiple date range filters:
+
+```python admin.py
+@admin.register(Booking)
+class BookingAdmin(ModelAdmin):
+    list_filter = [
+        ("check_in", RangeDateTimeFilter),
+        ("check_out", RangeDateTimeFilter),
+        ("created_at", RangeDateTimeFilter),
+    ]
+```
+
+<Info>
+Each filter maintains its own state, allowing complex date-based filtering.
+</Info>
+
+### Filtering Related DateFields
+
+```python models.py
+class Booking(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Event(models.Model):
+    start_date = models.DateField()
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeDateFilter
+
+
+class EventStartDateFilter(RangeDateFilter):
+    parameter_name = "event__start_date"
+
+
+@admin.register(Booking)
+class BookingAdmin(ModelAdmin):
+    list_filter = [
+        # Filter bookings by their event's start date
+        EventStartDateFilter,
+    ]
+```
+
+## Calendar Widget Features
+
+### Navigation
+
+The date picker includes:
+- Month/year dropdown for quick navigation
+- Previous/next month arrows
+- Today button to jump to current date
+- Click anywhere outside to close
+
+### Keyboard Support
+
+- **Arrow keys**: Navigate between days
+- **Enter**: Select date
+- **Escape**: Close picker
+- **Tab**: Move between date/time inputs
+
+### Accessibility
+
+The filters are accessible with:
+- Proper ARIA labels
+- Keyboard navigation
+- Screen reader support
+- Focus management
+
+## Form Classes
+
+### RangeDateForm
+
+Used by `RangeDateFilter`:
+
+```python
+from unfold.contrib.filters.forms import RangeDateForm
+
+# Creates two DateInput widgets:
+# - {parameter_name}_from
+# - {parameter_name}_to
+```
+
+### RangeDateTimeForm
+
+Used by `RangeDateTimeFilter`:
+
+```python
+from unfold.contrib.filters.forms import RangeDateTimeForm
+
+# Creates four inputs:
+# - {parameter_name}_from_0 (date)
+# - {parameter_name}_from_1 (time)
+# - {parameter_name}_to_0 (date)
+# - {parameter_name}_to_1 (time)
+```
+
+## Validation and Errors
+
+### Invalid Date Formats
+
+```python
+# User enters invalid date: "2024-13-45"
+# Filter returns None, shows all results
+# No error displayed to user
+```
+
+### Field Type Validation
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeDateFilter
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)  # Not a DateField!
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("name", RangeDateFilter),  # Raises TypeError
+    ]
+```
+
+<Warning>
+Applying date filters to non-date fields raises a `TypeError`. Ensure you only use them with `DateField` or `DateTimeField`.
+</Warning>
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Database indexes">
+    Add indexes to date fields for better performance:
+
+    ```python models.py
+    class Event(models.Model):
+        start_date = models.DateField(db_index=True)
+        created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    ```
+  </Accordion>
+
+  <Accordion title="Query optimization">
+    Date range queries use efficient `__gte` and `__lte` lookups:
+
+    ```python
+    # Efficient query that can use indexes
+    Event.objects.filter(
+        start_date__gte=date(2024, 1, 1),
+        start_date__lte=date(2024, 12, 31)
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Large datasets">
+    For very large tables:
+    - Ensure date fields are indexed
+    - Consider partitioning by date
+    - Use database-specific optimizations (PostgreSQL date ranges, etc.)
+  </Accordion>
+</AccordionGroup>
+
+## Templates
+
+### Custom Templates
+
+Override default templates:
+
+- **RangeDateFilter**: `unfold/filters/filters_date_range.html`
+- **RangeDateTimeFilter**: `unfold/filters/filters_datetime_range.html`
+
+Create custom template in your app:
+
+```html templates/admin/my_custom_date_filter.html
+{% extends "unfold/filters/filters_date_range.html" %}
+
+{% block filter_content %}
+  {# Custom date picker UI #}
+  {{ block.super }}
+{% endblock %}
+```
+
+## API Reference
+
+### RangeDateFilter
+
+<ParamField path="parameter_name" type="str | None" default="None">
+  Base parameter name. Defaults to field path. Creates `{name}_from` and `{name}_to` parameters.
+</ParamField>
+
+<ParamField path="form_class" type="type" default="RangeDateForm">
+  Form class used for rendering the date inputs
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_date_range.html"'>
+  Template used to render the filter
+</ParamField>
+
+### RangeDateTimeFilter
+
+<ParamField path="parameter_name" type="str | None" default="None">
+  Base parameter name. Creates `{name}_from_0`, `{name}_from_1`, `{name}_to_0`, `{name}_to_1` parameters.
+</ParamField>
+
+<ParamField path="form_class" type="type" default="RangeDateTimeForm">
+  Form class used for rendering date and time inputs
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_datetime_range.html"'>
+  Template used to render the filter
+</ParamField>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose the right filter">
+    - Use `RangeDateFilter` for `DateField`
+    - Use `RangeDateTimeFilter` for `DateTimeField`
+    - Don't mix date filters with wrong field types
+  </Step>
+
+  <Step title="Add database indexes">
+    Always index date fields used in filters:
+    ```python
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    ```
+  </Step>
+
+  <Step title="Consider user timezone">
+    Be aware of timezone differences when using `DateTimeField`:
+    - Display timezone information to users
+    - Handle timezone conversion properly
+    - Test with different timezone settings
+  </Step>
+
+  <Step title="Provide context">
+    Help users understand the filter:
+    - Use clear field names ("Created Date", not just "Created")
+    - Show current filter values in list display
+    - Consider adding default date ranges
+  </Step>
+</Steps>
+
+## Common Patterns
+
+### Last 30 Days Filter
+
+```python admin.py
+from datetime import datetime, timedelta
+from django.utils import timezone
+
+class Last30DaysFilter(RangeDateFilter):
+    def queryset(self, request, queryset):
+        # If no dates specified, default to last 30 days
+        if not self.used_parameters.get(f"{self.parameter_name}_from"):
+            thirty_days_ago = timezone.now().date() - timedelta(days=30)
+            queryset = queryset.filter(**{
+                f"{self.parameter_name}__gte": thirty_days_ago
+            })
+        else:
+            queryset = super().queryset(request, queryset)
+        
+        return queryset
+```
+
+### Current Year Filter
+
+```python admin.py
+from datetime import datetime
+
+class CurrentYearFilter(RangeDateFilter):
+    def queryset(self, request, queryset):
+        if not self.used_parameters:
+            current_year = datetime.now().year
+            return queryset.filter(
+                start_date__year=current_year
+            )
+        return super().queryset(request, queryset)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Numeric Filters" icon="hashtag" href="/filters/numeric">
+    Explore numeric range and slider filters
+  </Card>
+  
+  <Card title="Text Filters" icon="input-text" href="/filters/text">
+    Learn about text search filters
+  </Card>
+</CardGroup>

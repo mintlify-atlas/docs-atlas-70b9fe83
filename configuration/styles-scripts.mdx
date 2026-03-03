@@ -1,0 +1,236 @@
+---
+title: 'Custom styles and scripts'
+description: 'Add custom CSS and JavaScript to Django Unfold admin interface'
+keywords: ['css', 'javascript', 'styles', 'scripts', 'customization']
+---
+
+Django Unfold allows you to inject custom CSS stylesheets and JavaScript files into the admin interface for advanced customization and functionality.
+
+## Styles configuration
+
+<ParamField path="STYLES" type="array" default="[]">
+  List of custom CSS file paths to include in the admin interface.
+</ParamField>
+
+Add custom stylesheets to your admin interface:
+
+```python settings.py
+UNFOLD = {
+    "STYLES": [
+        "css/custom-admin.css",
+        "css/branding.css",
+    ],
+}
+```
+
+### CSS file structure
+
+Place your CSS files in your Django static files directory:
+
+```
+project/
+├── static/
+│   └── css/
+│       ├── custom-admin.css
+│       └── branding.css
+├── manage.py
+└── settings.py
+```
+
+### Example custom CSS
+
+```css custom-admin.css
+/* Override admin header background */
+.unfold-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Customize button styles */
+.unfold-btn-primary {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* Add custom spacing */
+.unfold-content {
+    padding: 2rem;
+}
+```
+
+## Scripts configuration
+
+<ParamField path="SCRIPTS" type="array" default="[]">
+  List of custom JavaScript file paths to include in the admin interface.
+</ParamField>
+
+Add custom JavaScript to your admin interface:
+
+```python settings.py
+UNFOLD = {
+    "SCRIPTS": [
+        "js/admin-analytics.js",
+        "js/custom-widgets.js",
+    ],
+}
+```
+
+### JavaScript file structure
+
+Place your JavaScript files in your Django static files directory:
+
+```
+project/
+├── static/
+│   └── js/
+│       ├── admin-analytics.js
+│       └── custom-widgets.js
+├── manage.py
+└── settings.py
+```
+
+### Example custom JavaScript
+
+```javascript admin-analytics.js
+// Track admin page views
+document.addEventListener('DOMContentLoaded', function() {
+    const pagePath = window.location.pathname;
+    console.log('Admin page viewed:', pagePath);
+    
+    // Send to analytics service
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'page_view', {
+            page_path: pagePath,
+            page_title: document.title
+        });
+    }
+});
+```
+
+```javascript custom-widgets.js
+// Add custom form field behavior
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-format phone numbers
+    const phoneInputs = document.querySelectorAll('input[type="tel"]');
+    phoneInputs.forEach(input => {
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 10) value = value.slice(0, 10);
+            e.target.value = value;
+        });
+    });
+});
+```
+
+## Complete example
+
+```python settings.py
+UNFOLD = {
+    "STYLES": [
+        "css/custom-admin.css",
+        "css/dark-theme-overrides.css",
+    ],
+    "SCRIPTS": [
+        "js/admin-analytics.js",
+        "js/custom-widgets.js",
+        "js/keyboard-shortcuts.js",
+    ],
+}
+```
+
+## Using external resources
+
+You can also reference external CDN resources:
+
+```python settings.py
+UNFOLD = {
+    "STYLES": [
+        "https://cdn.example.com/custom-fonts.css",
+        "css/local-overrides.css",
+    ],
+    "SCRIPTS": [
+        "https://cdn.example.com/chart-library.js",
+        "js/chart-integration.js",
+    ],
+}
+```
+
+## Load order
+
+Styles and scripts are loaded in the order specified:
+
+1. Unfold's default styles
+2. Your custom styles (in array order)
+3. Unfold's default scripts
+4. Your custom scripts (in array order)
+
+<Info>
+Custom styles are loaded after Unfold's default styles, so your CSS rules will override default styles.
+</Info>
+
+## Best practices
+
+### CSS best practices
+
+- Use specific selectors to avoid unintended overrides
+- Leverage Unfold's existing CSS custom properties
+- Test in both light and dark themes
+- Use responsive design principles
+- Minimize specificity conflicts
+
+```css good-example.css
+/* Good: Specific selector */
+.unfold-sidebar .custom-widget {
+    margin-bottom: 1rem;
+}
+
+/* Good: Using CSS custom properties */
+.custom-button {
+    background: var(--color-primary-500);
+    color: var(--color-base-50);
+}
+```
+
+### JavaScript best practices
+
+- Wait for DOM to be ready
+- Avoid global namespace pollution
+- Use event delegation for dynamic content
+- Handle errors gracefully
+- Check for existing libraries before loading
+
+```javascript good-example.js
+// Good: Namespaced and DOM-ready
+(function() {
+    'use strict';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Your code here
+    });
+})();
+```
+
+## Static files configuration
+
+Ensure your static files are properly configured in Django settings:
+
+```python settings.py
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+```
+
+Run `collectstatic` in production:
+
+```bash
+python manage.py collectstatic
+```
+
+<Warning>
+Always test custom styles and scripts in a development environment before deploying to production. Incorrect CSS or JavaScript can break the admin interface.
+</Warning>
+
+<Tip>
+Use your browser's developer tools to inspect Unfold's existing CSS classes and structure before writing custom styles.
+</Tip>

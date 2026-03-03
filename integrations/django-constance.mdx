@@ -1,0 +1,463 @@
+---
+title: Django Constance
+description: Manage dynamic Django settings through the admin interface with django-constance and Unfold's enhanced form widgets
+---
+
+## Overview
+
+Django Constance provides dynamic settings management, allowing you to change configuration values through the Django admin without redeploying your application. Unfold enhances this with beautifully styled form widgets that match your admin interface.
+
+<Info>
+  Dynamic settings are perfect for feature flags, rate limits, API keys, and other configuration that needs to change without code deployments.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-constance">
+    Install the package with your preferred backend:
+    
+    ```bash
+    # With database backend (recommended)
+    pip install django-constance[database]
+    
+    # Or with Redis backend
+    pip install django-constance[redis]
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add both `unfold.contrib.constance` and `constance` to your settings:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.constance",  # Before constance
+        
+        "django.contrib.admin",
+        # ...
+        
+        "constance",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Configure backend">
+    Set up the backend for storing settings:
+    
+    ```python settings.py
+    # For database backend
+    CONSTANCE_BACKEND = "constance.backends.database.DatabaseBackend"
+    
+    # For Redis backend
+    CONSTANCE_BACKEND = "constance.backends.redisd.RedisBackend"
+    CONSTANCE_REDIS_CONNECTION = {
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
+    }
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Create database tables (if using database backend):
+    
+    ```bash
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+### Define Settings
+
+Create your dynamic settings in `settings.py`:
+
+```python settings.py
+CONSTANCE_CONFIG = {
+    "SITE_NAME": ("My Site", "Website display name"),
+    "MAINTENANCE_MODE": (False, "Enable maintenance mode"),
+    "MAX_UPLOAD_SIZE": (10485760, "Maximum upload size in bytes"),
+    "ITEMS_PER_PAGE": (25, "Number of items per page"),
+    "SUPPORT_EMAIL": ("support@example.com", "Support contact email"),
+    "API_RATE_LIMIT": (100, "API requests per hour"),
+}
+
+CONSTANCE_CONFIG_FIELDSETS = {
+    "General": ("SITE_NAME", "SUPPORT_EMAIL"),
+    "Features": ("MAINTENANCE_MODE", "API_RATE_LIMIT"),
+    "Display": ("ITEMS_PER_PAGE", "MAX_UPLOAD_SIZE"),
+}
+```
+
+### Using Unfold Widgets
+
+Configure enhanced widgets for better UI:
+
+```python settings.py
+from unfold.contrib.constance.settings import UNFOLD_CONSTANCE_ADDITIONAL_FIELDS
+
+CONSTANCE_ADDITIONAL_FIELDS = {
+    **UNFOLD_CONSTANCE_ADDITIONAL_FIELDS,
+    
+    # Add custom field types
+    "choice_field": [
+        "django.forms.fields.ChoiceField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminSelectWidget",
+            "choices": (
+                ("light", "Light Theme"),
+                ("dark", "Dark Theme"),
+                ("auto", "Auto"),
+            ),
+        },
+    ],
+}
+```
+
+## Available Field Types
+
+Unfold provides pre-configured widgets for common field types:
+
+### Text Fields
+
+```python settings.py
+CONSTANCE_CONFIG = {
+    "SITE_TITLE": ("My Site", "Site title"),  # Uses UnfoldAdminTextInputWidget
+}
+```
+
+### Number Fields
+
+```python settings.py
+CONSTANCE_CONFIG = {
+    "MAX_ITEMS": (100, "Maximum items"),  # Uses UnfoldAdminIntegerFieldWidget
+    "TAX_RATE": (0.15, "Tax rate"),       # Uses UnfoldAdminDecimalFieldWidget
+}
+```
+
+### Boolean Fields
+
+```python settings.py
+CONSTANCE_CONFIG = {
+    "FEATURE_ENABLED": (True, "Enable feature"),  # Uses UnfoldBooleanSwitchWidget
+}
+```
+
+### File Fields
+
+```python settings.py
+CONSTANCE_ADDITIONAL_FIELDS = {
+    **UNFOLD_CONSTANCE_ADDITIONAL_FIELDS,
+}
+
+CONSTANCE_CONFIG = {
+    "LOGO": ("", "Site logo", "image_field"),
+    "TERMS_PDF": ("", "Terms of service PDF", "file_field"),
+}
+```
+
+### Choice Fields
+
+```python settings.py
+CONSTANCE_ADDITIONAL_FIELDS = {
+    **UNFOLD_CONSTANCE_ADDITIONAL_FIELDS,
+    
+    "theme_choice": [
+        "django.forms.fields.ChoiceField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminSelectWidget",
+            "choices": (
+                ("blue", "Blue"),
+                ("green", "Green"),
+                ("purple", "Purple"),
+            ),
+        },
+    ],
+}
+
+CONSTANCE_CONFIG = {
+    "COLOR_SCHEME": ("blue", "Site color scheme", "theme_choice"),
+}
+```
+
+## Advanced Configuration
+
+### Custom Widgets
+
+Create completely custom field types:
+
+```python settings.py
+CONSTANCE_ADDITIONAL_FIELDS = {
+    **UNFOLD_CONSTANCE_ADDITIONAL_FIELDS,
+    
+    "json_field": [
+        "django.forms.fields.JSONField",
+        {
+            "widget": "django.forms.widgets.Textarea",
+            "required": False,
+        },
+    ],
+    
+    "email_list": [
+        "django.forms.fields.CharField",
+        {
+            "widget": "unfold.widgets.UnfoldAdminTextInputWidget",
+            "help_text": "Comma-separated email addresses",
+        },
+    ],
+}
+
+CONSTANCE_CONFIG = {
+    "NOTIFICATION_SETTINGS": ({}, "Notification configuration", "json_field"),
+    "ADMIN_EMAILS": ("", "Admin email list", "email_list"),
+}
+```
+
+### Field Groups
+
+Organize settings into logical groups:
+
+```python settings.py
+CONSTANCE_CONFIG_FIELDSETS = {
+    "General Settings": {
+        "fields": ("SITE_NAME", "SITE_TITLE", "SUPPORT_EMAIL"),
+        "collapse": False,
+    },
+    "Feature Flags": {
+        "fields": ("MAINTENANCE_MODE", "ENABLE_REGISTRATION", "ENABLE_API"),
+        "collapse": True,
+    },
+    "Limits & Quotas": {
+        "fields": ("MAX_UPLOAD_SIZE", "API_RATE_LIMIT", "ITEMS_PER_PAGE"),
+        "collapse": True,
+    },
+}
+```
+
+## Using Settings in Code
+
+### Access Settings
+
+Retrieve dynamic settings in your code:
+
+```python views.py
+from constance import config
+from django.http import HttpResponse
+
+def my_view(request):
+    # Access settings
+    if config.MAINTENANCE_MODE:
+        return HttpResponse("Site is under maintenance")
+    
+    # Use settings values
+    items_per_page = config.ITEMS_PER_PAGE
+    site_name = config.SITE_NAME
+    
+    return render(request, "page.html", {
+        "items_per_page": items_per_page,
+        "site_name": site_name,
+    })
+```
+
+### Update Settings Programmatically
+
+```python
+from constance import config
+
+# Update a setting
+config.MAINTENANCE_MODE = True
+
+# Batch updates
+from constance.backends.database.models import Constance
+
+Constance.objects.create_or_update(
+    key="API_RATE_LIMIT",
+    value=200
+)
+```
+
+### Template Usage
+
+Access settings in templates:
+
+```django templates/base.html
+{% load constance_tags %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% get_constance SITE_NAME %}</title>
+</head>
+<body>
+    {% if config.MAINTENANCE_MODE %}
+        <div class="alert">Maintenance mode is active</div>
+    {% endif %}
+    
+    <footer>
+        Contact: {% get_constance SUPPORT_EMAIL %}
+    </footer>
+</body>
+</html>
+```
+
+## Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Feature Flags">
+    Control feature availability without deploying:
+    
+    ```python settings.py
+    CONSTANCE_CONFIG = {
+        "ENABLE_NEW_DASHBOARD": (False, "Enable new dashboard UI"),
+        "ENABLE_BETA_FEATURES": (False, "Enable beta features"),
+        "SHOW_PROMOTIONAL_BANNER": (True, "Show promo banner"),
+    }
+    ```
+    
+    ```python views.py
+    from constance import config
+    
+    def dashboard(request):
+        if config.ENABLE_NEW_DASHBOARD:
+            return render(request, "dashboard_v2.html")
+        return render(request, "dashboard_v1.html")
+    ```
+  </Accordion>
+  
+  <Accordion title="Rate Limiting">
+    Adjust rate limits on the fly:
+    
+    ```python settings.py
+    CONSTANCE_CONFIG = {
+        "API_RATE_LIMIT": (100, "API requests per hour"),
+        "LOGIN_ATTEMPTS": (5, "Max login attempts"),
+    }
+    ```
+    
+    ```python middleware.py
+    from constance import config
+    
+    def check_rate_limit(user):
+        limit = config.API_RATE_LIMIT
+        # Check if user exceeded limit
+    ```
+  </Accordion>
+  
+  <Accordion title="Maintenance Mode">
+    Enable maintenance without deployment:
+    
+    ```python settings.py
+    CONSTANCE_CONFIG = {
+        "MAINTENANCE_MODE": (False, "Enable maintenance mode"),
+        "MAINTENANCE_MESSAGE": (
+            "We'll be back soon!",
+            "Maintenance message"
+        ),
+    }
+    ```
+    
+    ```python middleware.py
+    from constance import config
+    
+    class MaintenanceMiddleware:
+        def __call__(self, request):
+            if config.MAINTENANCE_MODE and not request.user.is_staff:
+                return HttpResponse(config.MAINTENANCE_MESSAGE)
+    ```
+  </Accordion>
+  
+  <Accordion title="Dynamic Configuration">
+    Store API keys and external service config:
+    
+    ```python settings.py
+    CONSTANCE_CONFIG = {
+        "STRIPE_PUBLIC_KEY": ("", "Stripe public key"),
+        "GOOGLE_ANALYTICS_ID": ("", "GA tracking ID"),
+        "SENTRY_DSN": ("", "Sentry DSN"),
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Admin Interface
+
+The Constance admin interface provides:
+
+- Clean, organized form with field groups
+- Unfold-styled widgets for consistent design
+- Help text for each setting
+- Validation and error handling
+- Real-time updates (no restart required)
+
+<Tip>
+  Use fieldsets to organize related settings together for better usability in the admin.
+</Tip>
+
+## Performance Considerations
+
+### Caching
+
+Constance caches settings for performance:
+
+```python settings.py
+# Settings are cached by default
+CONSTANCE_DATABASE_CACHE_BACKEND = "default"
+```
+
+### Backend Choice
+
+<Tabs>
+  <Tab title="Database Backend">
+    Best for most use cases:
+    
+    - Simple setup
+    - No additional services required
+    - Good performance with caching
+    - Survives application restarts
+  </Tab>
+  
+  <Tab title="Redis Backend">
+    Best for high-traffic sites:
+    
+    - Faster read/write operations
+    - Better for frequent updates
+    - Requires Redis service
+    - Shared across multiple app servers
+  </Tab>
+</Tabs>
+
+## Security Considerations
+
+<Warning>
+  Sensitive values like API keys and secrets should be encrypted or stored in environment variables. Constance values are stored in plain text.
+</Warning>
+
+### Permissions
+
+Restrict access to Constance admin:
+
+```python admin.py
+from django.contrib import admin
+
+# Only superusers can change settings
+admin.site.unregister(Constance)
+
+@admin.register(Constance)
+class ConstrainceAdmin(admin.ModelAdmin):
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+```
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Django Constance Docs" icon="book" href="https://django-constance.readthedocs.io/">
+    Official documentation and configuration guide
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/jazzband/django-constance">
+    Source code and issue tracking
+  </Card>
+</CardGroup>

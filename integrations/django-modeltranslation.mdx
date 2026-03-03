@@ -1,0 +1,518 @@
+---
+title: Django Modeltranslation
+description: Create multilingual Django applications with django-modeltranslation and Unfold's tabbed translation interface for seamless content management
+---
+
+## Overview
+
+Django Modeltranslation enables translation of Django model fields. Unfold enhances this with a custom `TabbedTranslationAdmin` implementation that provides tabbed navigation for different languages, making it easy to manage translations directly in the admin interface.
+
+<Info>
+  Modeltranslation works by creating additional database fields for each translated field and language, keeping all translations in the same table.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-modeltranslation">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-modeltranslation
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add modeltranslation to your settings (must be before `django.contrib.admin`):
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "modeltranslation",  # Before django.contrib.admin
+        
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        # ...
+        
+        "myapp",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Configure languages">
+    Set up available languages:
+    
+    ```python settings.py
+    from django.utils.translation import gettext_lazy as _
+    
+    LANGUAGES = [
+        ("en", _("English")),
+        ("es", _("Spanish")),
+        ("fr", _("French")),
+        ("de", _("German")),
+    ]
+    
+    LANGUAGE_CODE = "en"
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Create translation fields:
+    
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+## Basic Configuration
+
+### Register Model for Translation
+
+Create a `translation.py` file in your app:
+
+```python translation.py
+from modeltranslation.translator import TranslationOptions, register
+from .models import Article
+
+@register(Article)
+class ArticleTranslationOptions(TranslationOptions):
+    fields = ("title", "content", "excerpt")
+    required_languages = ("en",)  # English is required
+```
+
+### Configure Admin
+
+Use Unfold's tabbed translation admin:
+
+```python admin.py
+from django.contrib import admin
+from modeltranslation.admin import TabbedTranslationAdmin
+from unfold.admin import ModelAdmin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin, TabbedTranslationAdmin):
+    list_display = ["title", "author", "published_date"]
+    search_fields = ["title", "content"]
+```
+
+<Note>
+  The order of inheritance matters: `ModelAdmin` should come before `TabbedTranslationAdmin`.
+</Note>
+
+## Model Setup
+
+### Basic Model
+
+```python models.py
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+class Article(models.Model):
+    title = models.CharField(_("Title"), max_length=200)
+    slug = models.SlugField(_("Slug"), max_length=200)
+    content = models.TextField(_("Content"))
+    excerpt = models.TextField(_("Excerpt"), blank=True)
+    author = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    published_date = models.DateTimeField(_("Published"), null=True, blank=True)
+    
+    class Meta:
+        verbose_name = _("Article")
+        verbose_name_plural = _("Articles")
+    
+    def __str__(self):
+        return self.title
+```
+
+After registering for translation, modeltranslation automatically creates fields like:
+- `title_en`, `title_es`, `title_fr`, `title_de`
+- `content_en`, `content_es`, `content_fr`, `content_de`
+- `excerpt_en`, `excerpt_es`, `excerpt_fr`, `excerpt_de`
+
+## Custom Language Flags
+
+Add visual flags to distinguish languages in the admin:
+
+```python settings.py
+UNFOLD = {
+    "EXTENSIONS": {
+        "modeltranslation": {
+            "flags": {
+                "en": "🇬🇧",
+                "es": "🇪🇸",
+                "fr": "🇫🇷",
+                "de": "🇩🇪",
+                "it": "🇮🇹",
+                "pt": "🇵🇹",
+                "nl": "🇳🇱",
+                "pl": "🇵🇱",
+                "ru": "🇷🇺",
+                "ja": "🇯🇵",
+                "zh": "🇨🇳",
+                "ko": "🇰🇷",
+                "ar": "🇸🇦",
+            },
+        },
+    },
+}
+```
+
+<Tip>
+  Flags appear as suffixes in field labels (e.g., "Title 🇬🇧", "Title 🇪🇸") making it immediately clear which language version you're editing.
+</Tip>
+
+## Advanced Features
+
+### Fallback Languages
+
+Configure fallback when a translation is missing:
+
+```python settings.py
+MODELTRANSLATION_FALLBACK_LANGUAGES = (
+    "en", "es", "fr"
+)
+
+# Or per language
+MODELTRANSLATION_FALLBACK_LANGUAGES = {
+    "default": ("en",),
+    "es": ("en",),
+    "fr": ("en",),
+    "de": ("en", "fr"),
+}
+```
+
+### Required Languages
+
+Enforce translations for specific languages:
+
+```python translation.py
+@register(Article)
+class ArticleTranslationOptions(TranslationOptions):
+    fields = ("title", "content")
+    required_languages = ("en", "es")  # English and Spanish required
+    # Other languages are optional
+```
+
+### Empty Values
+
+Control behavior for empty translations:
+
+```python translation.py
+@register(Article)
+class ArticleTranslationOptions(TranslationOptions):
+    fields = ("title", "content", "excerpt")
+    empty_values = {"excerpt": None}  # Allow None for excerpt
+```
+
+### Field-Specific Options
+
+Different settings per field:
+
+```python translation.py
+@register(Article)
+class ArticleTranslationOptions(TranslationOptions):
+    fields = ("title", "content", "excerpt")
+    
+    # Title required in all languages
+    required_languages = {
+        "title": ("en", "es", "fr"),
+        "content": ("en",),  # Content only required in English
+    }
+```
+
+## Working with Translations
+
+### Setting Translations
+
+```python
+from django.utils.translation import activate
+from myapp.models import Article
+
+# Create article with English content
+article = Article.objects.create(
+    title_en="Hello World",
+    content_en="This is the English content",
+    title_es="Hola Mundo",
+    content_es="Este es el contenido en español",
+)
+
+# Or use translation.activate
+activate("en")
+article.title = "Hello World"
+article.content = "English content"
+
+activate("es")
+article.title = "Hola Mundo"
+article.content = "Contenido en español"
+
+article.save()
+```
+
+### Querying Translations
+
+```python
+from django.utils.translation import activate
+
+# Query in current language
+activate("es")
+articles = Article.objects.filter(title__icontains="mundo")
+
+# Query specific language field
+articles = Article.objects.filter(title_es__icontains="mundo")
+
+# Get all articles with Spanish translation
+articles = Article.objects.exclude(title_es__isnull=True)
+```
+
+### Accessing Translations
+
+```python
+article = Article.objects.get(id=1)
+
+# Current language
+activate("en")
+print(article.title)  # Returns title_en
+
+activate("es")
+print(article.title)  # Returns title_es
+
+# Specific language
+print(article.title_en)  # Always returns English
+print(article.title_es)  # Always returns Spanish
+```
+
+## Admin Interface
+
+### Tabbed Navigation
+
+Unfold's `TabbedTranslationAdmin` provides:
+
+- Clean tabbed interface for each language
+- Easy switching between language versions
+- Visual indicators for completed translations
+- Consistent design with Unfold theme
+
+<Frame>
+  <img src="/images/django-modeltranslation-tabs.png" alt="Translation tabs" />
+</Frame>
+
+### Grouped Fields
+
+Organize translated fields in fieldsets:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin, TabbedTranslationAdmin):
+    fieldsets = [
+        ("Content", {
+            "fields": ["title", "slug", "content", "excerpt"],
+        }),
+        ("Publishing", {
+            "fields": ["author", "published_date", "status"],
+        }),
+    ]
+```
+
+### Inline Translations
+
+Handle translations in inlines:
+
+```python admin.py
+from unfold.admin import TabularInline
+
+class ChapterInline(TabularInline, TabbedTranslationAdmin):
+    model = Chapter
+    fields = ["title", "order"]
+    extra = 1
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin, TabbedTranslationAdmin):
+    inlines = [ChapterInline]
+```
+
+## Template Usage
+
+### Display Translations
+
+```django templates/article_detail.html
+{% load i18n %}
+
+<article>
+    <h1>{{ article.title }}</h1>
+    <div class="content">
+        {{ article.content|safe }}
+    </div>
+</article>
+
+<!-- Language switcher -->
+<div class="language-switcher">
+    {% get_available_languages as languages %}
+    {% for lang_code, lang_name in languages %}
+        <a href="{% url 'set_language' %}?language={{ lang_code }}">
+            {{ lang_name }}
+        </a>
+    {% endfor %}
+</div>
+```
+
+### Check Translation Availability
+
+```django
+{% if article.title_es %}
+    <a href="?lang=es">Ver en español</a>
+{% endif %}
+
+{% if article.title_fr %}
+    <a href="?lang=fr">Voir en français</a>
+{% endif %}
+```
+
+## Common Patterns
+
+<AccordionGroup>
+  <Accordion title="E-commerce Products">
+    Translate product information:
+    
+    ```python translation.py
+    @register(Product)
+    class ProductTranslationOptions(TranslationOptions):
+        fields = (
+            "name",
+            "description",
+            "short_description",
+            "specifications",
+        )
+        required_languages = ("en",)
+    ```
+  </Accordion>
+  
+  <Accordion title="Blog/CMS Content">
+    Multilingual blog posts:
+    
+    ```python translation.py
+    @register(BlogPost)
+    class BlogPostTranslationOptions(TranslationOptions):
+        fields = (
+            "title",
+            "slug",
+            "content",
+            "meta_description",
+        )
+        required_languages = ("en",)
+    ```
+  </Accordion>
+  
+  <Accordion title="Navigation Menus">
+    Translated menu items:
+    
+    ```python translation.py
+    @register(MenuItem)
+    class MenuItemTranslationOptions(TranslationOptions):
+        fields = ("label", "url")
+        required_languages = {"label": ("en", "es", "fr")}
+    ```
+  </Accordion>
+  
+  <Accordion title="Settings/Configuration">
+    Translatable site settings:
+    
+    ```python translation.py
+    @register(SiteSettings)
+    class SiteSettingsTranslationOptions(TranslationOptions):
+        fields = (
+            "site_name",
+            "tagline",
+            "about_text",
+            "contact_info",
+        )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Migration Guide
+
+### Adding Translation to Existing Model
+
+<Steps>
+  <Step title="Register model">
+    Add translation registration in `translation.py`
+  </Step>
+  
+  <Step title="Create migration">
+    ```bash
+    python manage.py makemigrations
+    ```
+  </Step>
+  
+  <Step title="Update existing data">
+    ```python
+    # In a data migration
+    def copy_to_default_language(apps, schema_editor):
+        Article = apps.get_model("myapp", "Article")
+        for article in Article.objects.all():
+            article.title_en = article.title
+            article.content_en = article.content
+            article.save()
+    ```
+  </Step>
+  
+  <Step title="Apply migration">
+    ```bash
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+## Performance Optimization
+
+### Selective Field Loading
+
+```python
+# Only load current language fields
+Article.objects.all().values("title", "content")
+
+# Explicitly load specific languages
+Article.objects.all().values("title_en", "title_es")
+```
+
+### Database Indexes
+
+```python models.py
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["title_en"]),
+            models.Index(fields=["title_es"]),
+        ]
+```
+
+## Live Demo
+
+<Card 
+  title="Try Translation Interface" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/formula/driver/56/change/"
+>
+  See tabbed translation interface in action with multiple languages
+</Card>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Modeltranslation Docs" icon="book" href="https://django-modeltranslation.readthedocs.io/">
+    Official documentation and guides
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/deschler/django-modeltranslation">
+    Source code and examples
+  </Card>
+</CardGroup>
+
+<Warning>
+  Each translated field creates additional database columns. For models with many fields and languages, consider whether all fields need translation.
+</Warning>

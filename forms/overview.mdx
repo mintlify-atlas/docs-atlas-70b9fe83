@@ -1,0 +1,262 @@
+---
+title: Forms Overview
+description: Comprehensive guide to Django Unfold's form system with custom widgets, fields, and formsets
+icon: forms
+---
+
+## Introduction
+
+Django Unfold provides a complete form system that extends Django's admin forms with modern, styled components. The forms system includes custom widgets, fields, formsets with pagination, and seamless integration with Django's admin interface.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Custom Widgets" icon="palette" href="/forms/widgets">
+    Pre-styled form widgets matching Unfold's design system
+  </Card>
+  <Card title="Custom Fields" icon="input-text" href="/forms/fields">
+    Enhanced form fields with autocomplete and special functionality
+  </Card>
+  <Card title="Pagination Support" icon="list-ol">
+    Built-in pagination for inline formsets
+  </Card>
+  <Card title="Conditional Fields" icon="filter" href="/forms/conditional-fields">
+    Show/hide fields based on conditions
+  </Card>
+</CardGroup>
+
+## Form Classes
+
+### AdminForm
+
+Unfold provides custom form wrapper classes that integrate with Django's admin system:
+
+```python
+from unfold.forms import AdminForm, Fieldset, Fieldline
+
+# These classes are automatically used by Unfold's ModelAdmin
+# You typically don't need to use them directly
+```
+
+<Info>
+The `AdminForm`, `Fieldset`, and `Fieldline` classes are automatically applied when using Unfold's `ModelAdmin`. They handle the rendering of form fields with proper styling.
+</Info>
+
+### Authentication Forms
+
+Custom authentication forms with Unfold styling:
+
+```python
+from unfold.forms import (
+    AuthenticationForm,
+    UserCreationForm,
+    UserChangeForm,
+    AdminPasswordChangeForm,
+    AdminOwnPasswordChangeForm,
+)
+
+# AuthenticationForm - Login form with Unfold styling
+# UserCreationForm - User creation with password fields
+# UserChangeForm - User edit form with password widget
+# AdminPasswordChangeForm - Change another user's password
+# AdminOwnPasswordChangeForm - Change own password
+```
+
+#### Example: Custom Login Form
+
+```python admin.py
+from django.contrib.admin import AdminSite
+from unfold.forms import AuthenticationForm
+
+class MyAdminSite(AdminSite):
+    login_form = AuthenticationForm
+
+admin_site = MyAdminSite(name='myadmin')
+```
+
+### ActionForm
+
+Custom action form for admin list views:
+
+```python
+from unfold.forms import ActionForm
+
+# Automatically applied to admin change lists
+# Provides styled action dropdown
+```
+
+## Formset Pagination
+
+### PaginationInlineFormSet
+
+Paginate inline formsets to improve performance with large datasets:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.forms import PaginationInlineFormSet
+from .models import Author, Book
+
+class BookInline(admin.TabularInline):
+    model = Book
+    formset = PaginationInlineFormSet
+    extra = 0
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        formset.request = request
+        formset.per_page = 10  # Show 10 items per page
+        return formset
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+### PaginationGenericInlineFormSet
+
+Pagination support for generic inline formsets:
+
+```python admin.py
+from django.contrib.contenttypes.admin import GenericTabularInline
+from unfold.forms import PaginationGenericInlineFormSet
+from .models import Comment
+
+class CommentInline(GenericTabularInline):
+    model = Comment
+    formset = PaginationGenericInlineFormSet
+    extra = 0
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        formset.request = request
+        formset.per_page = 20
+        return formset
+```
+
+<Warning>
+When using pagination formsets, you must set `formset.request` and `formset.per_page` in the `get_formset` method.
+</Warning>
+
+## Form Field Styling
+
+All Unfold widgets come with pre-applied Tailwind CSS classes:
+
+<CodeGroup>
+```python Base Classes
+BASE_INPUT_CLASSES = [
+    "border",
+    "border-base-200",
+    "bg-white",
+    "font-medium",
+    "rounded-default",
+    "shadow-xs",
+    "text-sm",
+    "focus:outline-2",
+    "focus:outline-primary-600",
+    "dark:bg-base-900",
+    "dark:border-base-700",
+]
+```
+
+```python Input Classes
+INPUT_CLASSES = [
+    *BASE_INPUT_CLASSES,
+    "px-3",
+    "py-2",
+    "w-full",
+    "max-w-2xl",
+]
+```
+</CodeGroup>
+
+## Search Forms
+
+### DatasetChangeListSearchForm
+
+Custom search form for dataset change lists:
+
+```python
+from unfold.forms import DatasetChangeListSearchForm
+
+# Used internally for search functionality
+# Automatically applied when using UNFOLD configuration
+```
+
+## Form Validation
+
+Unfold forms display validation errors with proper styling:
+
+```python forms.py
+from django import forms
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+class MyForm(forms.Form):
+    email = forms.EmailField(
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'placeholder': 'Enter email'
+        })
+    )
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if not email.endswith('@example.com'):
+            raise forms.ValidationError('Email must be from example.com')
+        return email
+```
+
+<Info>
+Validation errors are automatically styled with red borders and error messages below the field.
+</Info>
+
+## Password Fields
+
+### UnfoldReadOnlyPasswordHashWidget
+
+Read-only widget for displaying password hashes:
+
+```python
+from unfold.forms import UnfoldReadOnlyPasswordHashWidget
+
+class UserChangeForm(forms.ModelForm):
+    password = forms.CharField(
+        widget=UnfoldReadOnlyPasswordHashWidget()
+    )
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Unfold Widgets">
+    Always use Unfold's custom widgets to maintain consistent styling across your admin interface.
+  </Accordion>
+  
+  <Accordion title="Paginate Large Formsets">
+    Use `PaginationInlineFormSet` for inline relationships with many related objects to improve performance.
+  </Accordion>
+  
+  <Accordion title="Leverage Autocomplete">
+    Use autocomplete fields for foreign key relationships to improve user experience with large datasets.
+  </Accordion>
+  
+  <Accordion title="Validate Properly">
+    Implement custom validation methods to provide clear feedback to users.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Widgets" icon="palette" href="/forms/widgets">
+    Explore all available form widgets
+  </Card>
+  <Card title="Custom Fields" icon="input-text" href="/forms/fields">
+    Learn about enhanced form fields
+  </Card>
+  <Card title="Conditional Fields" icon="filter" href="/forms/conditional-fields">
+    Implement conditional field visibility
+  </Card>
+  <Card title="Crispy Forms" icon="code" href="/forms/crispy-forms">
+    Integrate with Django Crispy Forms
+  </Card>
+</CardGroup>

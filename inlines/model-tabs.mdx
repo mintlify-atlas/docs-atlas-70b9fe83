@@ -1,0 +1,352 @@
+---
+title: "Model Tabs"
+description: "Configure navigation tabs for organizing views across multiple models"
+---
+
+Model tabs provide a powerful navigation system that allows you to create custom tab-based navigation across different models, views, and pages in your Django admin interface.
+
+## Overview
+
+Model tabs are configured at the site level and allow you to group related models or views into a tabbed interface. This is useful for creating dashboard-like views or organizing related administrative tasks.
+
+<Frame>
+  <img src="/images/model-tabs-example.png" alt="Model tabs navigation example" />
+</Frame>
+
+## Configuration
+
+Model tabs are configured in your admin site settings using the `TABS` configuration:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.sites import UnfoldAdminSite
+
+class CustomAdminSite(UnfoldAdminSite):
+    def get_tabs_list(self, request):
+        return [
+            {
+                'models': ['app_name.modelname'],
+                'items': [
+                    {'link': '/admin/app/model/', 'title': 'All Items'},
+                    {'link': '/admin/app/model/?status=active', 'title': 'Active'},
+                    {'link': '/admin/app/model/?status=archived', 'title': 'Archived'},
+                ]
+            }
+        ]
+
+admin_site = CustomAdminSite(name='unfoldadmin')
+```
+
+<Info>
+  Model tabs are defined in the `TABS` configuration and can be customized per request.
+</Info>
+
+## Tab Structure
+
+Each tab configuration consists of:
+
+<ParamField path="models" type="list[str] | list[dict]">
+  List of model identifiers that should display these tabs. Can be strings in `'app.model'` format or dictionaries with additional options.
+</ParamField>
+
+<ParamField path="items" type="list[dict]">
+  List of tab items to display. Each item must have `link` and `title` properties.
+</ParamField>
+
+<ParamField path="page" type="str" optional>
+  Specific page identifier if tabs should only appear on certain pages (e.g., `'changelist'`, `'changeform'`).
+</ParamField>
+
+## Basic Example
+
+Create tabs for filtering products by status:
+
+```python admin.py
+from unfold.sites import UnfoldAdminSite
+
+class MyAdminSite(UnfoldAdminSite):
+    def get_tabs_list(self, request):
+        return [
+            {
+                'models': ['shop.product'],
+                'items': [
+                    {
+                        'title': 'All Products',
+                        'link': '/admin/shop/product/',
+                    },
+                    {
+                        'title': 'In Stock',
+                        'link': '/admin/shop/product/?stock__gt=0',
+                    },
+                    {
+                        'title': 'Out of Stock',
+                        'link': '/admin/shop/product/?stock=0',
+                    },
+                    {
+                        'title': 'Discontinued',
+                        'link': '/admin/shop/product/?status=discontinued',
+                    },
+                ]
+            }
+        ]
+```
+
+## Model-Specific Tabs
+
+You can specify different tabs for changelist and detail views:
+
+```python admin.py
+def get_tabs_list(self, request):
+    return [
+        {
+            'models': [
+                {'name': 'shop.product', 'detail': False}  # Only on changelist
+            ],
+            'items': [
+                {'title': 'All Products', 'link': '/admin/shop/product/'},
+                {'title': 'Featured', 'link': '/admin/shop/product/?featured=true'},
+            ]
+        },
+        {
+            'models': [
+                {'name': 'shop.product', 'detail': True}  # Only on detail view
+            ],
+            'items': [
+                {'title': 'Overview', 'link': '?tab=overview'},
+                {'title': 'Analytics', 'link': '?tab=analytics'},
+            ]
+        }
+    ]
+```
+
+<Check>
+  Use the `detail` key in model dictionaries to control whether tabs appear on the changelist (`detail=False`) or change form (`detail=True`).
+</Check>
+
+## Page-Specific Tabs
+
+Tabs can be limited to specific page types:
+
+```python admin.py
+def get_tabs_list(self, request):
+    return [
+        {
+            'page': 'changelist',  # Only on list view
+            'items': [
+                {'title': 'Dashboard', 'link': '/admin/dashboard/'},
+                {'title': 'Reports', 'link': '/admin/reports/'},
+            ]
+        }
+    ]
+```
+
+## Dynamic Tab Generation
+
+Generate tabs dynamically based on user permissions or other criteria:
+
+```python admin.py
+class MyAdminSite(UnfoldAdminSite):
+    def get_tabs_list(self, request):
+        tabs = [
+            {
+                'models': ['shop.product'],
+                'items': [
+                    {'title': 'All Products', 'link': '/admin/shop/product/'},
+                ]
+            }
+        ]
+        
+        # Add admin-only tabs
+        if request.user.is_superuser:
+            tabs[0]['items'].extend([
+                {'title': 'Pending Review', 'link': '/admin/shop/product/?status=pending'},
+                {'title': 'Flagged', 'link': '/admin/shop/product/?flagged=true'},
+            ])
+        
+        return tabs
+```
+
+## Active Tab Detection
+
+The system automatically detects the active tab by comparing:
+
+1. The current URL path
+2. Query parameters
+
+```python admin.py
+# The active tab is automatically highlighted when:
+# - The link matches the current path
+# - All query params in the link match the current query params
+
+{
+    'title': 'Active Products',
+    'link': '/admin/shop/product/?status=active',
+    # Will be active when viewing /admin/shop/product/?status=active
+    # But not when viewing /admin/shop/product/?status=active&page=2
+}
+```
+
+<Warning>
+  For active tab detection to work correctly, ensure your tab links include all necessary query parameters.
+</Warning>
+
+## Using Callbacks for Links
+
+Generate links dynamically using the `link_callback` option:
+
+```python admin.py
+from django.urls import reverse
+
+def get_tabs_list(self, request):
+    return [
+        {
+            'models': ['shop.product'],
+            'items': [
+                {
+                    'title': 'All Products',
+                    'link_callback': lambda req: reverse('admin:shop_product_changelist'),
+                },
+                {
+                    'title': 'My Products',
+                    'link_callback': lambda req: f"{reverse('admin:shop_product_changelist')}?owner={req.user.id}",
+                },
+            ]
+        }
+    ]
+```
+
+<Info>
+  Use `link_callback` when you need to generate links dynamically based on the request object.
+</Info>
+
+## Combining with Sidebar Navigation
+
+Model tabs work alongside sidebar navigation. When a sidebar link is active, the system checks if any associated model tabs should also be highlighted:
+
+```python admin.py
+class MyAdminSite(UnfoldAdminSite):
+    def get_navigation(self, request):
+        return [
+            {
+                'title': 'Products',
+                'link': '/admin/shop/product/',
+                # This sidebar link will be active when any product tab is active
+            },
+        ]
+    
+    def get_tabs_list(self, request):
+        return [
+            {
+                'models': ['shop.product'],
+                'items': [
+                    {'title': 'All', 'link': '/admin/shop/product/'},
+                    {'title': 'Active', 'link': '/admin/shop/product/?status=active'},
+                ]
+            }
+        ]
+```
+
+## Permissions
+
+Filter tabs based on user permissions:
+
+```python admin.py
+class MyAdminSite(UnfoldAdminSite):
+    def get_tabs_list(self, request):
+        tabs = [
+            {
+                'models': ['shop.product'],
+                'items': []
+            }
+        ]
+        
+        # Check permissions before adding items
+        from shop.models import Product
+        opts = Product._meta
+        
+        if request.user.has_perm(f'{opts.app_label}.view_{opts.model_name}'):
+            tabs[0]['items'].append({
+                'title': 'All Products',
+                'link': '/admin/shop/product/',
+            })
+        
+        if request.user.has_perm(f'{opts.app_label}.change_{opts.model_name}'):
+            tabs[0]['items'].append({
+                'title': 'Pending Approval',
+                'link': '/admin/shop/product/?status=pending',
+            })
+        
+        return tabs
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use meaningful tab titles" icon="tag">
+    Choose clear, action-oriented titles that describe what users will see.
+    
+    ```python
+    # Good
+    {'title': 'Active Orders', 'link': '...'}
+    {'title': 'Pending Shipment', 'link': '...'}
+    
+    # Avoid
+    {'title': 'Tab 1', 'link': '...'}
+    {'title': 'Other', 'link': '...'}
+    ```
+  </Accordion>
+  
+  <Accordion title="Keep query parameters consistent" icon="link">
+    Use consistent query parameter names across your tabs for better maintainability.
+    
+    ```python
+    # Good - consistent parameter names
+    {'title': 'Active', 'link': '/admin/shop/product/?status=active'}
+    {'title': 'Inactive', 'link': '/admin/shop/product/?status=inactive'}
+    
+    # Avoid - inconsistent parameters
+    {'title': 'Active', 'link': '/admin/shop/product/?status=active'}
+    {'title': 'Inactive', 'link': '/admin/shop/product/?is_active=false'}
+    ```
+  </Accordion>
+  
+  <Accordion title="Limit the number of tabs" icon="list">
+    Too many tabs can overwhelm users. Consider grouping or using a different navigation pattern if you need more than 6-7 tabs.
+  </Accordion>
+  
+  <Accordion title="Consider mobile users" icon="mobile">
+    Tab navigation adapts to smaller screens, but test your tab configuration on mobile devices to ensure a good experience.
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+Model tabs are processed through:
+
+- `unfold.sites.UnfoldAdminSite.get_tabs_list()` - Returns tab configuration
+- `unfold.sites.UnfoldAdminSite._get_is_tab_active()` - Determines active tab
+- `unfold.templatetags.unfold.tab_list` - Renders tabs in templates
+
+Template tag usage:
+```django
+{% load unfold %}
+{% tab_list 'changelist' opts %}
+```
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize related model inlines in tabs
+  </Card>
+  <Card title="Fieldset Tabs" icon="rectangle-vertical-history" href="/inlines/fieldset-tabs">
+    Create tabs within fieldsets
+  </Card>
+  <Card title="Sidebar Navigation" icon="sidebar" href="/advanced/sidebar-navigation">
+    Configure the sidebar navigation
+  </Card>
+  <Card title="Custom Pages" icon="file-code" href="/advanced/custom-pages">
+    Add custom pages to the admin
+  </Card>
+</CardGroup>

@@ -1,0 +1,272 @@
+---
+title: Layer Component
+description: Generic wrapper component for custom layouts and compositions
+---
+
+The Layer component is a minimal wrapper that passes through its children content. It's useful as a generic container for building custom component compositions and layouts.
+
+## Basic Usage
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/layer.html" %}
+  <p>Your content here</p>
+{% endcomponent %}
+```
+
+## Props
+
+<ParamField path="children" type="string">
+  Content to be rendered inside the layer. Passed via the component body.
+</ParamField>
+
+The Layer component doesn't accept any other props and simply renders its children without additional styling or markup.
+
+## Use Cases
+
+### Custom Component Wrapper
+
+Use Layer as a base for creating custom reusable components:
+
+```django
+{# templates/components/custom_stat.html #}
+{% load unfold %}
+
+{% component "unfold/components/layer.html" %}
+  <div class="flex flex-col items-center justify-center p-6 bg-white dark:bg-base-900 rounded-lg shadow">
+    <p class="text-4xl font-bold text-primary-600">{{ value }}</p>
+    <p class="text-sm text-gray-600 dark:text-gray-400">{{ label }}</p>
+  </div>
+{% endcomponent %}
+```
+
+### Layout Composition
+
+Combine Layer with other components for complex layouts:
+
+```django
+{% component "unfold/components/layer.html" %}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% component "unfold/components/card.html" with title="Users" %}
+      <p class="text-3xl font-bold">1,234</p>
+    {% endcomponent %}
+    
+    {% component "unfold/components/card.html" with title="Revenue" %}
+      <p class="text-3xl font-bold">$12,345</p>
+    {% endcomponent %}
+    
+    {% component "unfold/components/card.html" with title="Orders" %}
+      <p class="text-3xl font-bold">567</p>
+    {% endcomponent %}
+  </div>
+{% endcomponent %}
+```
+
+### Conditional Rendering
+
+```django
+{% component "unfold/components/layer.html" %}
+  {% if user.is_authenticated %}
+    <div class="bg-green-100 p-4 rounded">
+      Welcome back, {{ user.username }}!
+    </div>
+  {% else %}
+    <div class="bg-yellow-100 p-4 rounded">
+      Please log in to continue.
+    </div>
+  {% endif %}
+{% endcomponent %}
+```
+
+### Dynamic Content Sections
+
+```django
+{% component "unfold/components/layer.html" %}
+  <div class="space-y-6">
+    {% for section in sections %}
+      <div class="border-l-4 border-primary-600 pl-4">
+        <h3 class="font-semibold text-lg">{{ section.title }}</h3>
+        <p class="text-gray-600">{{ section.description }}</p>
+      </div>
+    {% endfor %}
+  </div>
+{% endcomponent %}
+```
+
+## Building Custom Components
+
+### Alert Component Example
+
+```django
+{# templates/components/alert.html #}
+{% load unfold %}
+
+{% component "unfold/components/layer.html" %}
+  <div class="p-4 rounded-lg border-l-4 
+    {% if variant == 'success' %}
+      bg-green-50 border-green-600 text-green-800
+      dark:bg-green-900/20 dark:border-green-500 dark:text-green-200
+    {% elif variant == 'error' %}
+      bg-red-50 border-red-600 text-red-800
+      dark:bg-red-900/20 dark:border-red-500 dark:text-red-200
+    {% elif variant == 'warning' %}
+      bg-yellow-50 border-yellow-600 text-yellow-800
+      dark:bg-yellow-900/20 dark:border-yellow-500 dark:text-yellow-200
+    {% else %}
+      bg-blue-50 border-blue-600 text-blue-800
+      dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-200
+    {% endif %}
+  ">
+    <div class="flex items-start gap-3">
+      <span class="material-symbols-outlined">
+        {% if variant == 'success' %}check_circle
+        {% elif variant == 'error' %}error
+        {% elif variant == 'warning' %}warning
+        {% else %}info{% endif %}
+      </span>
+      <div class="flex-1">
+        {% if title %}
+          <h4 class="font-semibold mb-1">{{ title }}</h4>
+        {% endif %}
+        {{ message }}
+      </div>
+    </div>
+  </div>
+{% endcomponent %}
+```
+
+### Stats Card Example
+
+```django
+{# templates/components/stat_card.html #}
+{% load unfold %}
+
+{% component "unfold/components/layer.html" %}
+  <div class="bg-gradient-to-br {{ gradient }} p-6 rounded-lg shadow-lg text-white">
+    <div class="flex items-center justify-between mb-4">
+      <span class="material-symbols-outlined text-4xl opacity-80">{{ icon }}</span>
+      {% if change %}
+        <span class="text-sm font-medium px-2 py-1 bg-white/20 rounded">
+          {{ change }}%
+        </span>
+      {% endif %}
+    </div>
+    <p class="text-3xl font-bold mb-1">{{ value }}</p>
+    <p class="text-sm opacity-90">{{ label }}</p>
+  </div>
+{% endcomponent %}
+```
+
+Usage:
+
+```django
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+  {% include "components/stat_card.html" with icon="people" value="1,234" label="Total Users" gradient="from-blue-500 to-blue-600" change="+12" %}
+  
+  {% include "components/stat_card.html" with icon="shopping_cart" value="567" label="Orders" gradient="from-green-500 to-green-600" change="+8" %}
+  
+  {% include "components/stat_card.html" with icon="payments" value="$12,345" label="Revenue" gradient="from-purple-500 to-purple-600" change="+15" %}
+  
+  {% include "components/stat_card.html" with icon="trending_up" value="92%" label="Conversion" gradient="from-orange-500 to-orange-600" change="+3" %}
+</div>
+```
+
+## Integration Example
+
+```python
+# views.py
+from django.views.generic import TemplateView
+from unfold.views import UnfoldModelAdminViewMixin
+
+class CustomDashboardView(UnfoldModelAdminViewMixin, TemplateView):
+    title = "Custom Dashboard"
+    template_name = "admin/custom_dashboard.html"
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        context['sections'] = [
+            {
+                'title': 'Recent Activity',
+                'description': 'Latest user actions',
+                'data': self.get_recent_activity()
+            },
+            {
+                'title': 'System Status',
+                'description': 'Current system health',
+                'data': self.get_system_status()
+            },
+        ]
+        
+        return context
+    
+    def get_recent_activity(self):
+        # Return recent activity data
+        pass
+    
+    def get_system_status(self):
+        # Return system status
+        pass
+```
+
+```django
+{# templates/admin/custom_dashboard.html #}
+{% extends "unfold/layouts/base.html" %}
+{% load unfold %}
+
+{% block content %}
+<div class="container mx-auto">
+  {% component "unfold/components/layer.html" %}
+    <div class="space-y-6">
+      {% for section in sections %}
+        {% component "unfold/components/card.html" with title=section.title %}
+          <p class="text-gray-600 mb-4">{{ section.description }}</p>
+          
+          {% component "unfold/components/layer.html" %}
+            {# Custom section content #}
+            {{ section.data }}
+          {% endcomponent %}
+        {% endcomponent %}
+      {% endfor %}
+    </div>
+  {% endcomponent %}
+</div>
+{% endblock %}
+```
+
+## Why Use Layer?
+
+The Layer component provides:
+
+1. **Consistency**: Use the same component template tag syntax throughout your templates
+2. **Future-proofing**: If Layer gains functionality later, your code is already using it
+3. **Semantic clarity**: Marks intentional component boundaries in templates
+4. **Composition**: Easy to extend with wrapper logic without changing child templates
+
+## Best Practices
+
+1. **Keep it Simple**: Layer should remain a pass-through component
+2. **Use for Composition**: Build complex layouts by nesting components
+3. **Custom Components**: Use Layer as a base for custom reusable components
+4. **Semantic HTML**: Add appropriate HTML structure inside Layer
+
+## When Not to Use Layer
+
+Avoid using Layer when:
+
+- A more specific component exists (use Card, Button, etc.)
+- No component wrapper is needed at all
+- You're just adding a simple `<div>` (do it directly)
+
+## Related Components
+
+- [Card](/components/card) - Structured container with header/footer
+- [Button](/components/button) - Interactive elements
+- [Table](/components/table) - Tabular data display
+
+All components can be used within Layer for composition.
+
+## Source
+
+Template: `src/unfold/templates/unfold/components/layer.html:1`

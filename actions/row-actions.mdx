@@ -1,0 +1,433 @@
+---
+title: Row Actions
+description: Add quick actions to individual rows in Django admin changelist tables
+---
+
+Row actions appear as buttons or links in each row of your changelist table, providing quick access to operations on individual objects without navigating to the detail view. They're perfect for quick edits, status changes, or navigation shortcuts.
+
+## Configuration
+
+Row actions are configured using the `actions_row` attribute in your `ModelAdmin` class:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_row = [
+        "quick_view",
+        "toggle_published",
+        "duplicate",
+    ]
+```
+
+## Basic Row Action
+
+A row action receives both `request` and `object_id` parameters:
+
+```python
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from unfold.decorators import action
+
+@action(description="Quick View")
+def quick_view(self, request, object_id):
+    # Get the object
+    article = self.get_object(request, object_id)
+    
+    # Perform action
+    messages.info(request, f"Viewing: {article.title}")
+    return redirect(article.get_absolute_url())
+```
+
+<Note>
+  Row actions share the same signature as detail actions (`request`, `object_id`) but are displayed in the list view table.
+</Note>
+
+## Styled Row Actions
+
+Enhance row actions with icons and color variants:
+
+```python
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="View",
+    icon="eye",
+    variant=ActionVariant.INFO
+)
+def quick_view(self, request, object_id):
+    article = self.get_object(request, object_id)
+    return redirect(article.get_absolute_url())
+
+@action(
+    description="Edit",
+    icon="pencil",
+    variant=ActionVariant.PRIMARY
+)
+def quick_edit(self, request, object_id):
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[object_id]))
+
+@action(
+    description="Delete",
+    icon="trash",
+    variant=ActionVariant.DANGER
+)
+def quick_delete(self, request, object_id):
+    article = self.get_object(request, object_id)
+    title = article.title
+    article.delete()
+    
+    messages.warning(request, f"Deleted: {title}")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Toggle Actions Example
+
+Create actions that toggle object states:
+
+```python
+from django.utils import timezone
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Toggle Published",
+    icon="power-off",
+    variant=ActionVariant.WARNING
+)
+def toggle_published(self, request, object_id):
+    article = self.get_object(request, object_id)
+    
+    if article.is_published:
+        article.is_published = False
+        article.unpublished_at = timezone.now()
+        status = "unpublished"
+    else:
+        article.is_published = True
+        article.published_at = timezone.now()
+        status = "published"
+    
+    article.save()
+    messages.success(request, f"Article {status}: {article.title}")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+@action(
+    description="Toggle Featured",
+    icon="star",
+    variant=ActionVariant.SUCCESS
+)
+def toggle_featured(self, request, object_id):
+    article = self.get_object(request, object_id)
+    article.is_featured = not article.is_featured
+    article.save()
+    
+    status = "featured" if article.is_featured else "unfeatured"
+    messages.success(request, f"Article {status}")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+@action(
+    description="Archive",
+    icon="box-archive",
+    variant=ActionVariant.WARNING
+)
+def archive_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    article.archived = True
+    article.archived_at = timezone.now()
+    article.archived_by = request.user
+    article.save()
+    
+    messages.info(request, f"Archived: {article.title}")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Permission-Protected Row Actions
+
+Control access to row actions based on permissions:
+
+```python
+@action(
+    description="Publish",
+    permissions=["myapp.publish_article"],
+    icon="check",
+    variant=ActionVariant.SUCCESS
+)
+def publish_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    article.status = "published"
+    article.published_by = request.user
+    article.save()
+    
+    messages.success(request, "Article published")
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+@action(
+    description="Approve",
+    permissions=["approve"],
+    icon="thumbs-up",
+    variant=ActionVariant.PRIMARY
+)
+def approve_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    article.approved = True
+    article.approved_by = request.user
+    article.save()
+    return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+def has_approve_permission(self, request, object_id=None):
+    # Note: object_id is optional for row actions in permission methods
+    if not request.user.groups.filter(name="Editors").exists():
+        return False
+    
+    if object_id:
+        article = self.get_object(request, object_id)
+        # Can't approve own articles
+        return article.author != request.user
+    
+    return True
+```
+
+<Tip>
+  Row action permission methods can optionally use `object_id` for object-level permission checks. The button will be hidden for rows where permission is denied.
+</Tip>
+
+## Duplicate Action Example
+
+Create a complete duplication action:
+
+```python
+from django.utils.text import slugify
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@action(
+    description="Duplicate",
+    icon="copy",
+    variant=ActionVariant.INFO
+)
+def duplicate_article(self, request, object_id):
+    original = self.get_object(request, object_id)
+    
+    # Create a copy
+    duplicate = self.model.objects.create(
+        title=f"{original.title} (Copy)",
+        slug=f"{original.slug}-copy",
+        content=original.content,
+        author=request.user,
+        status="draft",
+    )
+    
+    # Copy many-to-many relationships
+    duplicate.tags.set(original.tags.all())
+    duplicate.categories.set(original.categories.all())
+    
+    messages.success(request, f"Created duplicate: {duplicate.title}")
+    return redirect(reverse_lazy("admin:myapp_article_change", args=[duplicate.pk]))
+```
+
+## External Link Actions
+
+Open external resources in new tabs:
+
+```python
+@action(
+    description="Preview",
+    icon="external-link",
+    variant=ActionVariant.INFO,
+    attrs={"target": "_blank", "rel": "noopener noreferrer"}
+)
+def preview_article(self, request, object_id):
+    article = self.get_object(request, object_id)
+    return redirect(article.get_absolute_url())
+
+@action(
+    description="Analytics",
+    icon="chart-bar",
+    attrs={"target": "_blank"},
+    url_path="row-analytics"
+)
+def view_analytics(self, request, object_id):
+    article = self.get_object(request, object_id)
+    return redirect(f"https://analytics.example.com/article/{article.id}")
+```
+
+## Complete Example
+
+Here's a comprehensive example with multiple row actions:
+
+```python admin.py
+from django.contrib import admin, messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from django.utils import timezone
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_display = ["title", "author", "status", "created_at"]
+    actions_row = [
+        "quick_view",
+        "quick_edit",
+        "toggle_published",
+        "duplicate",
+        "delete_article",
+    ]
+
+    @action(
+        description="View",
+        icon="eye",
+        variant=ActionVariant.INFO,
+        attrs={"target": "_blank"}
+    )
+    def quick_view(self, request, object_id):
+        article = self.get_object(request, object_id)
+        return redirect(article.get_absolute_url())
+
+    @action(
+        description="Edit",
+        icon="pencil",
+        variant=ActionVariant.PRIMARY
+    )
+    def quick_edit(self, request, object_id):
+        return redirect(
+            reverse_lazy("admin:myapp_article_change", args=[object_id])
+        )
+
+    @action(
+        description="Publish/Unpublish",
+        icon="power-off",
+        variant=ActionVariant.WARNING,
+        permissions=["myapp.change_article"]
+    )
+    def toggle_published(self, request, object_id):
+        article = self.get_object(request, object_id)
+        
+        if article.status == "published":
+            article.status = "draft"
+            article.unpublished_at = timezone.now()
+            msg = "unpublished"
+        else:
+            article.status = "published"
+            article.published_at = timezone.now()
+            msg = "published"
+        
+        article.save()
+        messages.success(request, f"Article {msg}: {article.title}")
+        return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+    @action(
+        description="Duplicate",
+        icon="copy",
+        variant=ActionVariant.INFO
+    )
+    def duplicate(self, request, object_id):
+        original = self.get_object(request, object_id)
+        
+        duplicate = self.model.objects.create(
+            title=f"{original.title} (Copy)",
+            content=original.content,
+            author=request.user,
+            status="draft",
+        )
+        
+        messages.success(request, f"Created: {duplicate.title}")
+        return redirect(
+            reverse_lazy("admin:myapp_article_change", args=[duplicate.pk])
+        )
+
+    @action(
+        description="Delete",
+        icon="trash",
+        variant=ActionVariant.DANGER,
+        permissions=["myapp.delete_article"]
+    )
+    def delete_article(self, request, object_id):
+        article = self.get_object(request, object_id)
+        title = article.title
+        article.delete()
+        
+        messages.warning(request, f"Deleted: {title}")
+        return redirect(reverse_lazy("admin:myapp_article_changelist"))
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep actions lightweight" icon="feather">
+    Row actions should be quick operations. For complex operations, redirect to the detail view:
+    ```python
+    return redirect(reverse_lazy("admin:app_model_change", args=[object_id]))
+    ```
+  </Accordion>
+
+  <Accordion title="Return to list view" icon="list">
+    Most row actions should redirect back to the changelist:
+    ```python
+    return redirect(reverse_lazy("admin:app_model_changelist"))
+    ```
+  </Accordion>
+
+  <Accordion title="Use icons consistently" icon="icons">
+    Choose intuitive icons that match the action:
+    - `"eye"` for view
+    - `"pencil"` for edit
+    - `"trash"` for delete
+    - `"copy"` for duplicate
+    - `"check"` for approve
+  </Accordion>
+
+  <Accordion title="Limit the number of actions" icon="hashtag">
+    Too many row actions can clutter the interface. Consider using 3-5 key actions:
+    ```python
+    actions_row = [
+        "view",
+        "edit",
+        "toggle_status",
+        "duplicate",
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Provide clear feedback" icon="comment">
+    Always use messages to confirm the action:
+    ```python
+    messages.success(request, f"Action completed for: {obj.title}")
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Row Actions vs Detail Actions
+
+<Note>
+  **Row actions** and **detail actions** share the same method signature but serve different purposes:
+  
+  - **Row actions** (`actions_row`): Quick operations in the list view, displayed for each row
+  - **Detail actions** (`actions_detail`): Operations in the change form view, displayed at the top
+  
+  The same method can be used in both if needed:
+  ```python
+  actions_row = ["duplicate"]
+  actions_detail = ["duplicate"]
+  ```
+</Note>
+
+## Related Actions
+
+<CardGroup cols={2}>
+  <Card title="Detail Actions" icon="file-pen" href="/actions/detail-actions">
+    Create actions for object detail views
+  </Card>
+  <Card title="List Actions" icon="list" href="/actions/list-actions">
+    Add global actions to list views
+  </Card>
+</CardGroup>

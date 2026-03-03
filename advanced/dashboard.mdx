@@ -1,0 +1,291 @@
+---
+title: Dashboard Customization
+description: Create a customized Django Unfold admin dashboard with dynamic charts, components, data visualization, and personalized content using template overrides and callback functions for an enhanced admin interface.
+---
+
+# Dashboard Customization
+
+Django Unfold provides powerful customization options for your admin dashboard, allowing you to create personalized interfaces with custom data, charts, and components. This guide covers both template-based customization and dynamic data injection.
+
+## Creating a Custom Dashboard Template
+
+To customize your admin dashboard, create a new file at `templates/admin/index.html` in your project directory. This file serves as your custom dashboard template.
+
+<Note>
+Ensure you have configured the template directory in `settings.py` by adding `'DIRS': [BASE_DIR / "templates"]` to your `TEMPLATES` configuration.
+</Note>
+
+### Template Configuration
+
+First, ensure your template directory is set up correctly:
+
+```python settings.py
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / "templates"],  # Add this line
+        # ...
+    }
+]
+```
+
+### Basic Dashboard Template
+
+Here's a basic dashboard template structure:
+
+```html templates/admin/index.html
+{% extends 'admin/base.html' %}
+
+{% load i18n %}
+
+{% block title %}
+    {% if subtitle %}
+        {{ subtitle }} |
+    {% endif %}
+
+    {{ title }} | {{ site_title|default:_('Django site admin') }}
+{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+    <div class="p-6">
+        <h1 class="text-2xl font-bold mb-4">Welcome to Your Dashboard</h1>
+        <!-- Add your custom content here -->
+    </div>
+{% endblock %}
+```
+
+## Dynamic Data Injection
+
+Unfold provides a `DASHBOARD_CALLBACK` parameter that allows you to inject custom variables into your dashboard template. This is useful for displaying database queries, statistics, or any dynamic data.
+
+### Setting Up the Callback
+
+<Steps>
+  <Step title="Create the Callback Function">
+    Create a function that accepts `request` and `context` parameters and returns the updated context.
+
+    ```python views.py
+    from django.db.models import Count
+    from .models import Order, Customer
+
+    def dashboard_callback(request, context):
+        """
+        Inject custom variables into the dashboard template.
+        """
+        # Query your database
+        total_orders = Order.objects.count()
+        pending_orders = Order.objects.filter(status='pending').count()
+        total_customers = Customer.objects.count()
+        
+        # Calculate statistics
+        recent_orders = Order.objects.order_by('-created_at')[:5]
+        
+        # Update context with your custom data
+        context.update({
+            "total_orders": total_orders,
+            "pending_orders": pending_orders,
+            "total_customers": total_customers,
+            "recent_orders": recent_orders,
+        })
+
+        return context
+    ```
+  </Step>
+
+  <Step title="Register the Callback">
+    Add the callback path to your Unfold configuration.
+
+    ```python settings.py
+    UNFOLD = {
+        "DASHBOARD_CALLBACK": "app.views.dashboard_callback",
+    }
+    ```
+  </Step>
+
+  <Step title="Use Variables in Template">
+    Access your custom variables in the dashboard template.
+
+    ```html templates/admin/index.html
+    {% block content %}
+        <div class="grid grid-cols-3 gap-4 p-6">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold">Total Orders</h3>
+                <p class="text-3xl">{{ total_orders }}</p>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold">Pending Orders</h3>
+                <p class="text-3xl">{{ pending_orders }}</p>
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold">Total Customers</h3>
+                <p class="text-3xl">{{ total_customers }}</p>
+            </div>
+        </div>
+
+        <div class="p-6">
+            <h2 class="text-xl font-bold mb-4">Recent Orders</h2>
+            <ul>
+                {% for order in recent_orders %}
+                    <li>Order #{{ order.id }} - {{ order.customer.name }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endblock %}
+    ```
+  </Step>
+</Steps>
+
+## Custom Styling with Tailwind CSS
+
+<Warning>
+Custom styles in your dashboard template are not automatically compiled. You need to configure Tailwind CSS for your project to ensure your custom styles are properly applied.
+</Warning>
+
+When adding custom Tailwind classes to your dashboard:
+
+1. The classes won't work by default since they're project-specific
+2. You need to set up Tailwind CSS compilation for your project
+3. Alternatively, you can write vanilla CSS without Tailwind
+
+For detailed instructions on adding custom CSS and JavaScript, see the [Styles & Scripts](/configuration/styles-scripts) guide.
+
+### Example with Tailwind Classes
+
+```html templates/admin/index.html
+{% block content %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm font-medium">Total Sales</p>
+                        <p class="text-3xl font-bold mt-2">${{ total_sales|floatformat:2 }}</p>
+                    </div>
+                    <svg class="w-12 h-12 text-blue-200" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+```
+
+## Advanced Dashboard Examples
+
+### Dashboard with Charts
+
+You can integrate chart libraries like Chart.js:
+
+```python views.py
+def dashboard_callback(request, context):
+    from django.db.models import Count
+    from django.db.models.functions import TruncMonth
+    
+    # Monthly sales data for chart
+    monthly_sales = (
+        Order.objects
+        .annotate(month=TruncMonth('created_at'))
+        .values('month')
+        .annotate(total=Count('id'))
+        .order_by('month')
+    )
+    
+    context.update({
+        "monthly_sales_labels": [item['month'].strftime('%B') for item in monthly_sales],
+        "monthly_sales_data": [item['total'] for item in monthly_sales],
+    })
+    
+    return context
+```
+
+```html templates/admin/index.html
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<canvas id="salesChart"></canvas>
+
+<script>
+    const ctx = document.getElementById('salesChart');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ monthly_sales_labels|safe }},
+            datasets: [{
+                label: 'Monthly Sales',
+                data: {{ monthly_sales_data|safe }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        }
+    });
+</script>
+```
+
+### Dashboard with Unfold Components
+
+Leverage Unfold's built-in components in your dashboard:
+
+```html templates/admin/index.html
+{% load unfold %}
+
+{% block content %}
+    <div class="p-6">
+        {% component "unfold/components/card.html" with title="Quick Stats" %}
+            <p>Your dashboard content here</p>
+        {% endcomponent %}
+        
+        {% component "unfold/components/table.html" with data=recent_orders %}
+            <!-- Table content -->
+        {% endcomponent %}
+    </div>
+{% endblock %}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Performance Optimization">
+    - Cache expensive database queries in your callback function
+    - Use `select_related()` and `prefetch_related()` to optimize queries
+    - Consider using Django's caching framework for dashboard data
+    - Limit the amount of data loaded on the initial page load
+  </Accordion>
+
+  <Accordion title="Security Considerations">
+    - Always check user permissions in your callback function
+    - Filter data based on user roles and permissions
+    - Validate any user input if your dashboard accepts parameters
+    - Use Django's built-in security features
+  </Accordion>
+
+  <Accordion title="Responsive Design">
+    - Use responsive Tailwind classes (sm:, md:, lg:)
+    - Test your dashboard on different screen sizes
+    - Ensure tables are scrollable on mobile devices
+    - Consider mobile-first design principles
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Customizing Tailwind" icon="palette" href="/docs/styles-scripts/customizing-tailwind">
+    Learn how to set up Tailwind CSS for custom styling
+  </Card>
+  <Card title="Components" icon="cube" href="/docs/components/introduction">
+    Explore available Unfold components for your dashboard
+  </Card>
+  <Card title="Custom Pages" icon="file" href="/docs/advanced/custom-pages">
+    Create additional custom pages in your admin
+  </Card>
+  <Card title="Settings" icon="gear" href="/docs/configuration/settings">
+    View all available configuration options
+  </Card>
+</CardGroup>

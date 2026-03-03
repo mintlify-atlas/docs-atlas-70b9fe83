@@ -1,0 +1,523 @@
+---
+title: Language Switcher
+description: Enable multi-language support in Django Unfold admin with language switching, internationalization configuration, custom language lists, and i18n URL patterns for a fully localized admin interface.
+---
+
+# Language Switcher
+
+Django Unfold provides built-in support for multi-language admin interfaces. Enable language switching to allow users to view the admin interface in their preferred language.
+
+## Overview
+
+The language switcher appears in the top-right corner of the admin interface, allowing users to quickly switch between available languages. Once enabled, the admin interface will be fully localized based on the selected language.
+
+## Prerequisites
+
+Before configuring the language switcher, ensure your Django project has internationalization properly set up.
+
+### Django Configuration
+
+<Steps>
+  <Step title="Enable Internationalization">
+    Set the required internationalization settings in your Django configuration.
+
+    ```python settings.py
+    # Enable internationalization
+    USE_I18N = True
+
+    # Set default language
+    LANGUAGE_CODE = "en"
+
+    # Define available languages
+    LANGUAGES = (
+        ("en", _("English")),
+        ("de", _("German")),
+        ("fr", _("French")),
+        ("es", _("Spanish")),
+    )
+    ```
+  </Step>
+
+  <Step title="Add Locale Middleware">
+    Add the locale middleware to handle language selection.
+
+    ```python settings.py
+    MIDDLEWARE = [
+        "django.middleware.security.SecurityMiddleware",
+        "django.contrib.sessions.middleware.SessionMiddleware",
+        "django.middleware.locale.LocaleMiddleware",  # Add this line
+        "django.middleware.common.CommonMiddleware",
+        # ... other middleware
+    ]
+    ```
+  </Step>
+
+  <Step title="Configure URL Patterns">
+    Set up i18n URL patterns for language-specific URLs.
+
+    ```python urls.py
+    from django.conf.urls.i18n import i18n_patterns
+    from django.urls import include, path
+
+    urlpatterns = [
+        # This is required for the language selector to work
+        path("i18n/", include("django.conf.urls.i18n")),
+    ] + i18n_patterns(
+        path("admin/", admin.site.urls),
+        # ... other patterns
+    )
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+The `path("i18n/", include("django.conf.urls.i18n"))` line must be **outside** the `i18n_patterns()` block. This provides the endpoint for language switching.
+</Warning>
+
+## Basic Configuration
+
+Enable the language switcher in your Unfold settings.
+
+```python settings.py
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+}
+```
+
+With this configuration:
+- Admin will be accessible at `/en/admin/`, `/de/admin/`, etc.
+- Visiting `/admin/` redirects to the default language (`/en/admin/`)
+- Language preference is stored in the user's session
+
+## Custom Language Configuration
+
+Override the default language list with custom options.
+
+### Hardcoded Language List
+
+Provide a static list of languages:
+
+```python settings.py
+from django.utils.translation import get_language_info
+
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+    "LANGUAGES": {
+        "navigation": [
+            {
+                "code": "en",
+                "name": "English",
+                "name_local": "English",
+                "name_translated": "English",
+                "bidi": False,
+            },
+            {
+                "code": "de",
+                "name": "German",
+                "name_local": "Deutsch",
+                "name_translated": "German",
+                "bidi": False,
+            },
+            {
+                "code": "fr",
+                "name": "French",
+                "name_local": "Français",
+                "name_translated": "French",
+                "bidi": False,
+            },
+        ],
+    },
+}
+```
+
+### Language Object Format
+
+<ResponseField name="code" type="string" required>
+  ISO 639-1 language code (e.g., "en", "de", "fr")
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Language name in English
+</ResponseField>
+
+<ResponseField name="name_local" type="string" required>
+  Language name in its native language
+</ResponseField>
+
+<ResponseField name="name_translated" type="string" required>
+  Translated language name based on current locale
+</ResponseField>
+
+<ResponseField name="bidi" type="bool" required>
+  Whether the language uses right-to-left text direction (e.g., Arabic, Hebrew)
+</ResponseField>
+
+### Dynamic Language List with Callback
+
+Use a callback function to generate the language list dynamically:
+
+```python settings.py
+from django.utils.translation import gettext_lazy as _
+
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+    "LANGUAGES": {
+        "navigation": "app.utils.get_languages",
+    },
+}
+```
+
+```python utils.py
+from django.utils.translation import get_language_info
+
+def get_languages(request):
+    """
+    Return list of available languages.
+    
+    Args:
+        request: The current HTTP request
+        
+    Returns:
+        list: List of language dictionaries
+    """
+    # Define which languages to show
+    language_codes = ["en", "de", "fr", "es"]
+    
+    # Generate language info using Django's helper
+    return [get_language_info(code) for code in language_codes]
+```
+
+### Permission-Based Languages
+
+Show different languages based on user permissions:
+
+```python utils.py
+from django.utils.translation import get_language_info
+
+def get_languages(request):
+    """
+    Return languages based on user permissions.
+    """
+    # Base languages available to all users
+    languages = ["en"]
+    
+    # Add additional languages for staff
+    if request.user.is_staff:
+        languages.extend(["de", "fr"])
+    
+    # Add all languages for superusers
+    if request.user.is_superuser:
+        languages.extend(["es", "it", "pt", "ja", "zh-hans"])
+    
+    return [get_language_info(code) for code in languages]
+```
+
+## Advanced Examples
+
+### Language Flags
+
+Add country flags to language options:
+
+```python settings.py
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+    "LANGUAGE_FLAGS": {
+        "en": "🇬🇧",
+        "de": "🇩🇪",
+        "fr": "🇫🇷",
+        "es": "🇪🇸",
+        "it": "🇮🇹",
+        "pt": "🇵🇹",
+        "ja": "🇯🇵",
+        "zh-hans": "🇨🇳",
+    },
+}
+```
+
+### Custom Language Switching Action
+
+Implement a custom language switching handler:
+
+```python settings.py
+from django.urls import reverse_lazy
+
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+    "LANGUAGES": {
+        "navigation": "app.utils.get_languages",
+        "action": reverse_lazy("custom_language_switch"),
+    },
+}
+```
+
+```python views.py
+from django.conf import settings
+from django.http import HttpResponseRedirect
+from django.utils import translation
+from django.views.decorators.http import require_POST
+
+@require_POST
+def custom_language_switch(request):
+    """
+    Custom language switching with logging.
+    """
+    language = request.POST.get('language')
+    
+    if language and language in dict(settings.LANGUAGES):
+        # Activate the language
+        translation.activate(language)
+        request.session[translation.LANGUAGE_SESSION_KEY] = language
+        
+        # Log the language change
+        logger.info(f"User {request.user} switched to language: {language}")
+    
+    # Redirect back to the previous page
+    return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+```
+
+### Region-Based Default Language
+
+Set the default language based on user's region:
+
+```python middleware.py
+from django.utils import translation
+
+class RegionLanguageMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if not request.session.get(translation.LANGUAGE_SESSION_KEY):
+            # Detect region from IP or other method
+            region = self.detect_region(request)
+            
+            # Map regions to languages
+            region_language_map = {
+                'US': 'en',
+                'GB': 'en',
+                'DE': 'de',
+                'FR': 'fr',
+                'ES': 'es',
+            }
+            
+            language = region_language_map.get(region, 'en')
+            translation.activate(language)
+            request.session[translation.LANGUAGE_SESSION_KEY] = language
+        
+        return self.get_response(request)
+    
+    def detect_region(self, request):
+        # Implement region detection logic
+        return 'US'
+```
+
+### Fallback Language
+
+Implement graceful fallback for unsupported languages:
+
+```python utils.py
+from django.conf import settings
+from django.utils.translation import get_language_info
+
+def get_languages(request):
+    """
+    Return languages with fallback support.
+    """
+    try:
+        # Try to get user's preferred languages from profile
+        if hasattr(request.user, 'profile'):
+            language_codes = request.user.profile.available_languages
+        else:
+            # Fallback to all configured languages
+            language_codes = [code for code, name in settings.LANGUAGES]
+        
+        return [get_language_info(code) for code in language_codes]
+    except Exception as e:
+        # If anything fails, return English only
+        logger.error(f"Error loading languages: {e}")
+        return [get_language_info('en')]
+```
+
+## Complete Configuration Example
+
+```python settings.py
+from django.utils.translation import gettext_lazy as _
+
+# Django i18n settings
+USE_I18N = True
+LANGUAGE_CODE = "en"
+
+LANGUAGES = (
+    ("en", _("English")),
+    ("de", _("German")),
+    ("fr", _("French")),
+    ("es", _("Spanish")),
+    ("it", _("Italian")),
+    ("pt", _("Portuguese")),
+)
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    # ... other middleware
+]
+
+# Unfold language configuration
+UNFOLD = {
+    "SHOW_LANGUAGES": True,
+    "LANGUAGE_FLAGS": {
+        "en": "🇬🇧",
+        "de": "🇩🇪",
+        "fr": "🇫🇷",
+        "es": "🇪🇸",
+        "it": "🇮🇹",
+        "pt": "🇵🇹",
+    },
+    "LANGUAGES": {
+        # Optional: Use callback for dynamic language list
+        # "navigation": "app.utils.get_languages",
+        
+        # Optional: Custom language switching endpoint
+        # "action": reverse_lazy("custom_language_switch"),
+    },
+}
+```
+
+```python urls.py
+from django.conf.urls.i18n import i18n_patterns
+from django.urls import include, path
+from django.contrib import admin
+
+urlpatterns = [
+    # Required for language switching
+    path("i18n/", include("django.conf.urls.i18n")),
+] + i18n_patterns(
+    path("admin/", admin.site.urls),
+    # Other patterns...
+)
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Native Language Names">
+    Always display language names in their native language for better user experience.
+
+    ```python
+    # Good - native names
+    {"code": "de", "name_local": "Deutsch"}
+    {"code": "fr", "name_local": "Français"}
+    
+    # Less optimal - English names only
+    {"code": "de", "name_local": "German"}
+    {"code": "fr", "name_local": "French"}
+    ```
+  </Accordion>
+
+  <Accordion title="Test RTL Languages">
+    If supporting right-to-left languages (Arabic, Hebrew), test thoroughly.
+
+    ```python
+    LANGUAGES = (
+        ("en", _("English")),
+        ("ar", _("Arabic")),  # RTL language
+        ("he", _("Hebrew")),  # RTL language
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Provide Fallback">
+    Always include a fallback language in case of errors.
+
+    ```python
+    def get_languages(request):
+        try:
+            return get_user_languages(request)
+        except Exception:
+            # Fallback to English
+            return [get_language_info('en')]
+    ```
+  </Accordion>
+
+  <Accordion title="Cache Language Info">
+    Cache language information to avoid repeated processing.
+
+    ```python
+    from django.core.cache import cache
+    
+    def get_languages(request):
+        cache_key = f'languages_{request.user.id}'
+        languages = cache.get(cache_key)
+        
+        if languages is None:
+            languages = [
+                get_language_info(code) 
+                for code in get_available_languages(request)
+            ]
+            cache.set(cache_key, languages, 3600)  # Cache for 1 hour
+        
+        return languages
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Language Switcher Not Appearing">
+    If the language switcher doesn't show:
+
+    1. Verify `SHOW_LANGUAGES = True` in settings
+    2. Check that `USE_I18N = True` in Django settings
+    3. Ensure `LocaleMiddleware` is in `MIDDLEWARE`
+    4. Confirm `LANGUAGES` is properly defined
+  </Accordion>
+
+  <Accordion title="Language Not Persisting">
+    If the selected language doesn't persist:
+
+    1. Check that `SessionMiddleware` is enabled
+    2. Verify the `i18n` URL pattern is configured correctly
+    3. Ensure the pattern is outside `i18n_patterns()`
+    4. Check that sessions are working properly
+  </Accordion>
+
+  <Accordion title="404 on Language Switch">
+    If switching languages causes 404 errors:
+
+    1. Verify `path("i18n/", include("django.conf.urls.i18n"))` is present
+    2. Ensure it's not inside `i18n_patterns()`
+    3. Check that the URL pattern doesn't have a prefix
+    4. Clear browser cache and sessions
+  </Accordion>
+
+  <Accordion title="Translations Not Working">
+    If translations don't appear:
+
+    1. Run `python manage.py compilemessages`
+    2. Check that `.mo` files exist in locale directories
+    3. Verify `LOCALE_PATHS` is configured if using custom locations
+    4. Restart the development server
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Settings" icon="gear" href="/docs/configuration/settings">
+    View all available configuration options
+  </Card>
+  <Card title="Environment Labels" icon="tag" href="/docs/advanced/environment-label">
+    Add environment indicators to the admin
+  </Card>
+  <Card title="Site Dropdown" icon="bars" href="/docs/configuration/site-dropdown">
+    Add a site dropdown menu
+  </Card>
+  <Card title="Django i18n" icon="globe" href="https://docs.djangoproject.com/en/stable/topics/i18n/">
+    Official Django internationalization documentation
+  </Card>
+</CardGroup>

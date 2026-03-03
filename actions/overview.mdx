@@ -1,0 +1,267 @@
+---
+title: Actions Overview
+description: Create custom actions with Django Unfold's flexible action system for list views, detail views, rows, and submit lines
+---
+
+Django Unfold provides a comprehensive action system that allows you to add custom functionality throughout your admin interface. Actions can be added to list views, detail views, individual rows, and form submit lines.
+
+## Action Types
+
+Unfold supports four distinct types of actions:
+
+<CardGroup cols={2}>
+  <Card title="List Actions" icon="list" href="/actions/list-actions">
+    Global actions displayed at the top of changelist views
+  </Card>
+  <Card title="Row Actions" icon="table-rows" href="/actions/row-actions">
+    Actions available for each row in the changelist table
+  </Card>
+  <Card title="Detail Actions" icon="file-pen" href="/actions/detail-actions">
+    Actions displayed at the top of change form views
+  </Card>
+  <Card title="Submit Line Actions" icon="floppy-disk" href="/actions/submit-line-actions">
+    Custom buttons in the form submit line
+  </Card>
+</CardGroup>
+
+## The @action Decorator
+
+All actions are created using the `@action` decorator from `unfold.decorators`:
+
+```python
+from unfold.decorators import action
+
+@action(
+    description="Export selected items",
+    permissions=["export"],
+    icon="download",
+    variant="success",
+    url_path="custom-export",
+    attrs={"target": "_blank"}
+)
+def export_action(self, request):
+    # Action implementation
+    pass
+```
+
+### Decorator Parameters
+
+<ParamField path="description" type="str" default="None">
+  Human-readable text displayed for the action. If not provided, the function name is used.
+</ParamField>
+
+<ParamField path="permissions" type="Iterable[str]" default="None">
+  List of required permissions. Can be Django permissions (`"app.permission_name"`) or custom permission methods (`"custom_permission"`).
+</ParamField>
+
+<ParamField path="icon" type="str" default="None">
+  Icon name to display with the action. Uses the icon library configured in your admin.
+</ParamField>
+
+<ParamField path="variant" type="ActionVariant" default="ActionVariant.DEFAULT">
+  Visual style variant for the action button. Available variants:
+  - `ActionVariant.DEFAULT` - Default styling
+  - `ActionVariant.PRIMARY` - Primary button style
+  - `ActionVariant.SUCCESS` - Success/green styling
+  - `ActionVariant.INFO` - Info/blue styling
+  - `ActionVariant.WARNING` - Warning/yellow styling
+  - `ActionVariant.DANGER` - Danger/red styling
+</ParamField>
+
+<ParamField path="url_path" type="str" default="None">
+  Custom URL path for the action. If not provided, uses the function name.
+</ParamField>
+
+<ParamField path="attrs" type="dict[str, Any]" default="None">
+  Additional HTML attributes to apply to the action element (e.g., `{"target": "_blank"}`).
+</ParamField>
+
+## Basic Example
+
+Here's a simple example showing all four action types:
+
+```python admin.py
+from django.contrib import admin, messages
+from django.shortcuts import redirect
+from django.urls import reverse_lazy
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    # List view actions
+    actions_list = [
+        "publish_all",
+    ]
+    
+    # Row actions
+    actions_row = [
+        "view_article",
+    ]
+    
+    # Detail view actions
+    actions_detail = [
+        "preview_article",
+    ]
+    
+    # Submit line actions
+    actions_submit_line = [
+        "save_and_notify",
+    ]
+
+    @action(description="Publish All Articles", icon="upload")
+    def publish_all(self, request):
+        # List action implementation
+        messages.success(request, "All articles published")
+        return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+    @action(description="View", icon="eye")
+    def view_article(self, request, object_id):
+        # Row action implementation
+        article = self.get_object(request, object_id)
+        messages.info(request, f"Viewing: {article.title}")
+        return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+    @action(description="Preview", icon="magnifying-glass", variant=ActionVariant.INFO)
+    def preview_article(self, request, object_id):
+        # Detail action implementation
+        messages.info(request, "Opening preview")
+        return redirect(reverse_lazy("admin:myapp_article_changelist"))
+
+    @action(description="Save & Notify", variant=ActionVariant.SUCCESS)
+    def save_and_notify(self, request, obj):
+        # Submit line action - no redirect needed
+        messages.success(request, f"Saved and notification sent for {obj.title}")
+```
+
+## Permission Control
+
+Actions can be protected with permissions using either Django's built-in permission system or custom permission methods:
+
+```python
+# Using Django permissions
+@action(
+    description="Delete All",
+    permissions=["myapp.delete_article"]
+)
+def delete_all(self, request):
+    pass
+
+# Using custom permission methods
+@action(
+    description="Approve",
+    permissions=["approve"]
+)
+def approve_article(self, request, object_id):
+    pass
+
+def has_approve_permission(self, request, object_id=None):
+    return request.user.is_superuser
+
+# Combining multiple permissions (all must pass)
+@action(
+    description="Critical Action",
+    permissions=["myapp.change_article", "custom_permission"]
+)
+def critical_action(self, request):
+    pass
+
+def has_custom_permission_permission(self, request):
+    return request.user.groups.filter(name="Admins").exists()
+```
+
+<Note>
+  Custom permission methods must follow the naming pattern `has_{permission}_permission`.
+</Note>
+
+## Dropdown Groups
+
+Both list and detail actions support grouping actions into dropdowns:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_list = [
+        "quick_publish",
+        {
+            "title": "Export Options",
+            "icon": "download",
+            "items": [
+                "export_csv",
+                "export_json",
+                "export_xml",
+            ],
+        },
+    ]
+    
+    actions_detail = [
+        "preview",
+        {
+            "title": "Publishing",
+            "icon": "upload",
+            "variant": ActionVariant.SUCCESS,
+            "items": [
+                "publish_now",
+                "schedule_publish",
+                "unpublish",
+            ],
+        },
+    ]
+
+    @action(description="Quick Publish")
+    def quick_publish(self, request):
+        pass
+
+    @action(description="Export as CSV")
+    def export_csv(self, request):
+        pass
+
+    @action(description="Export as JSON")
+    def export_json(self, request):
+        pass
+
+    @action(description="Export as XML")
+    def export_xml(self, request):
+        pass
+```
+
+## Hiding Default Actions
+
+You can hide Django's default actions (Save, Delete, etc.) when using custom actions:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    # Hide default list actions dropdown
+    actions_list_hide_default = True
+    
+    # Hide default detail view buttons
+    actions_detail_hide_default = True
+    
+    actions_list = ["custom_bulk_action"]
+    actions_detail = ["custom_save_action"]
+```
+
+<Warning>
+  Be careful when hiding default actions - ensure you provide alternative actions for essential functionality like saving and deleting.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="List Actions" icon="list" href="/actions/list-actions">
+    Learn about creating actions for list views
+  </Card>
+  <Card title="Row Actions" icon="table-rows" href="/actions/row-actions">
+    Add actions to individual table rows
+  </Card>
+  <Card title="Detail Actions" icon="file-pen" href="/actions/detail-actions">
+    Create actions for detail views
+  </Card>
+  <Card title="Submit Line Actions" icon="floppy-disk" href="/actions/submit-line-actions">
+    Customize form submission buttons
+  </Card>
+</CardGroup>

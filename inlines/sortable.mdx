@@ -1,0 +1,337 @@
+---
+title: "Sortable Inlines"
+description: "Enable drag-and-drop ordering for inline related objects"
+---
+
+Sortable inlines allow users to manually order related objects using drag-and-drop functionality, providing an intuitive way to manage the display order of related items.
+
+## Overview
+
+When you have related objects that need to maintain a specific order (like slides in a slideshow, steps in a tutorial, or menu items), sortable inlines provide a user-friendly way to manage that order directly in the Django admin interface.
+
+<Frame>
+  <img src="/images/sortable-inline-example.png" alt="Drag-and-drop sortable inline" />
+</Frame>
+
+## Basic Setup
+
+To make an inline sortable, you need:
+
+1. An ordering field in your model (typically an `IntegerField` or `PositiveIntegerField`)
+2. Set the `ordering_field` attribute on your inline class
+
+```python models.py
+from django.db import models
+
+class Gallery(models.Model):
+    name = models.CharField(max_length=100)
+    
+class Image(models.Model):
+    gallery = models.ForeignKey(Gallery, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    file = models.ImageField(upload_to='gallery/')
+    order = models.PositiveIntegerField(default=0)  # Ordering field
+    
+    class Meta:
+        ordering = ['order']  # Default ordering by order field
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
+from .models import Gallery, Image
+
+class ImageInline(TabularInline):
+    model = Image
+    extra = 0
+    ordering_field = 'order'  # Enable drag-and-drop sorting
+    fields = ['title', 'file', 'order']
+
+@admin.register(Gallery)
+class GalleryAdmin(ModelAdmin):
+    inlines = [ImageInline]
+```
+
+<Info>
+  The `ordering_field` tells Unfold which field to update when items are reordered via drag-and-drop.
+</Info>
+
+## Hiding the Ordering Field
+
+You can hide the ordering field from the inline display while still maintaining sortable functionality:
+
+```python admin.py
+class ImageInline(TabularInline):
+    model = Image
+    extra = 0
+    ordering_field = 'order'
+    hide_ordering_field = True  # Hide the order field column
+    fields = ['title', 'file']  # Don't include 'order' in fields
+```
+
+<Check>
+  Setting `hide_ordering_field = True` provides a cleaner interface by hiding the numeric order field while keeping the drag-and-drop functionality.
+</Check>
+
+## Stacked Inline Sorting
+
+Sortable functionality works with both tabular and stacked inlines:
+
+```python admin.py
+from unfold.admin import StackedInline
+
+class ChapterInline(StackedInline):
+    model = Chapter
+    extra = 0
+    ordering_field = 'position'
+    hide_ordering_field = True
+    
+    fieldsets = [
+        ('Chapter Information', {
+            'fields': ['title', 'content']
+        }),
+        ('Settings', {
+            'fields': ['is_published', 'publish_date']
+        })
+    ]
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    inlines = [ChapterInline]
+```
+
+## Model-Level Ordering
+
+You can also enable ordering at the ModelAdmin level for the changelist view:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+
+@admin.register(MenuItem)
+class MenuItemAdmin(ModelAdmin):
+    list_display = ['name', 'parent', 'order']
+    list_editable = ['order']  # Allow inline editing
+    ordering_field = 'order'  # Enable drag-and-drop in changelist
+    hide_ordering_field = False  # Show order column
+```
+
+<Info>
+  When `ordering_field` is set on ModelAdmin, the field is automatically added to `list_display` and `list_editable` if not already present.
+</Info>
+
+## Automatic Order Assignment
+
+Implement automatic order assignment for new objects:
+
+```python models.py
+from django.db import models
+
+class PlaylistItem(models.Model):
+    playlist = models.ForeignKey('Playlist', on_delete=models.CASCADE)
+    song = models.ForeignKey('Song', on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0)
+    
+    def save(self, *args, **kwargs):
+        if not self.order:
+            # Set order to max + 1
+            max_order = PlaylistItem.objects.filter(
+                playlist=self.playlist
+            ).aggregate(models.Max('order'))['order__max']
+            self.order = (max_order or 0) + 1
+        super().save(*args, **kwargs)
+    
+    class Meta:
+        ordering = ['order']
+        unique_together = ['playlist', 'order']
+```
+
+```python admin.py
+class PlaylistItemInline(TabularInline):
+    model = PlaylistItem
+    extra = 1
+    ordering_field = 'order'
+    hide_ordering_field = True
+    fields = ['song']
+```
+
+## Combining with Tabs
+
+Sortable inlines work seamlessly with inline tabs:
+
+```python admin.py
+class ImageInline(TabularInline):
+    model = Image
+    extra = 0
+    tab = True  # Display in a tab
+    ordering_field = 'order'
+    hide_ordering_field = True
+    fields = ['title', 'file', 'caption']
+
+class VideoInline(TabularInline):
+    model = Video
+    extra = 0
+    tab = True
+    ordering_field = 'position'
+    hide_ordering_field = True
+    fields = ['title', 'url']
+
+@admin.register(MediaGallery)
+class MediaGalleryAdmin(ModelAdmin):
+    inlines = [ImageInline, VideoInline]
+```
+
+<Check>
+  Learn more about inline tabs in [Inline Tabs](/inlines/inline-tabs).
+</Check>
+
+## Combining with Pagination
+
+Sortable inlines can be used with pagination, though sorting is limited to items on the current page:
+
+```python admin.py
+class ImageInline(TabularInline):
+    model = Image
+    extra = 0
+    ordering_field = 'order'
+    hide_ordering_field = True
+    per_page = 20  # Enable pagination
+    fields = ['title', 'file']
+```
+
+<Warning>
+  When using pagination with sortable inlines, users can only reorder items within the current page. Consider the UX implications when enabling both features.
+</Warning>
+
+## Custom Ordering Logic
+
+Implement custom ordering logic in your model:
+
+```python models.py
+class Task(models.Model):
+    project = models.ForeignKey('Project', on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    order = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ['order', '-created_at']  # Secondary sort by creation date
+        
+    def move_up(self):
+        """Move task up in the order"""
+        previous = Task.objects.filter(
+            project=self.project,
+            order__lt=self.order
+        ).order_by('-order').first()
+        
+        if previous:
+            self.order, previous.order = previous.order, self.order
+            self.save()
+            previous.save()
+    
+    def move_down(self):
+        """Move task down in the order"""
+        next_task = Task.objects.filter(
+            project=self.project,
+            order__gt=self.order
+        ).order_by('order').first()
+        
+        if next_task:
+            self.order, next_task.order = next_task.order, self.order
+            self.save()
+            next_task.save()
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use positive integers for ordering" icon="hashtag">
+    Always use `PositiveIntegerField` or `PositiveSmallIntegerField` for order fields:
+    
+    ```python
+    order = models.PositiveIntegerField(default=0, db_index=True)
+    ```
+    
+    Add a database index for better performance on large datasets.
+  </Accordion>
+  
+  <Accordion title="Set default ordering in Meta" icon="sort">
+    Always specify ordering in your model's Meta class:
+    
+    ```python
+    class Meta:
+        ordering = ['order', 'created_at']
+    ```
+    
+    This ensures consistent ordering throughout your application.
+  </Accordion>
+  
+  <Accordion title="Handle gaps in ordering" icon="grip-lines">
+    It's okay to have gaps in order values. Focus on relative ordering, not sequential numbers:
+    
+    ```python
+    # Acceptable: [10, 20, 30, 40]
+    # Also fine: [1, 2, 5, 100]
+    # What matters is the order, not the specific values
+    ```
+  </Accordion>
+  
+  <Accordion title="Consider scope for ordering" icon="object-group">
+    Order items within a specific scope (parent object):
+    
+    ```python
+    class Meta:
+        ordering = ['order']
+        unique_together = [['parent', 'order']]  # Unique within parent
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## JavaScript Integration
+
+The sortable functionality uses JavaScript to handle drag-and-drop. The order field is automatically updated when items are reordered:
+
+```python admin.py
+class ImageInline(TabularInline):
+    model = Image
+    ordering_field = 'order'
+    
+    class Media:
+        js = [
+            # Unfold automatically includes the necessary JavaScript
+            # No additional JS needed for basic sorting
+        ]
+```
+
+<Info>
+  Unfold handles all the JavaScript for drag-and-drop functionality automatically. You don't need to include any additional scripts.
+</Info>
+
+## Technical Details
+
+<ParamField path="ordering_field" type="str">
+  The name of the model field that stores the order value. This field must be numeric (IntegerField or similar).
+</ParamField>
+
+<ParamField path="hide_ordering_field" type="bool" default="False">
+  When `True`, hides the ordering field column from the inline display while maintaining drag-and-drop functionality.
+</ParamField>
+
+The ordering field is processed in:
+- Changelist: `unfold.templatetags.unfold_list.result_headers` and `result_list`
+- Inlines: `unfold.templatetags.unfold.inline_fieldsets`
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inlines Overview" icon="layer-group" href="/inlines/overview">
+    Learn about inline basics
+  </Card>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize inlines with tabs
+  </Card>
+  <Card title="Paginated Inlines" icon="page" href="/inlines/paginated">
+    Add pagination to inlines
+  </Card>
+  <Card title="Nonrelated Inlines" icon="link-slash" href="/inlines/nonrelated">
+    Work with non-related objects
+  </Card>
+</CardGroup>

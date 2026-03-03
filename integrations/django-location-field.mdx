@@ -1,0 +1,471 @@
+---
+title: Django Location Field
+description: Add interactive map widgets to Django Unfold with django-location-field for easy geographic location selection and display
+---
+
+## Overview
+
+Django Location Field provides a location field and widget that displays an interactive map in your Django admin. Unfold's integration ensures the map widget is properly styled and integrated with your admin interface.
+
+<Info>
+  Location fields make it easy to store geographic coordinates (latitude/longitude) and display them on an interactive map for intuitive location selection.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-location-field">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-location-field
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add both `unfold.contrib.location_field` and `location_field` to your settings. Order matters:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.location_field",  # Before location_field
+        
+        "django.contrib.admin",
+        # ...
+        
+        "location_field",
+    ]
+    ```
+  </Step>
+</Steps>
+
+## Basic Usage
+
+### Model with Location Field
+
+```python models.py
+from django.db import models
+from location_field.models.plain import PlainLocationField
+
+class Venue(models.Model):
+    name = models.CharField(max_length=200)
+    address = models.TextField()
+    location = PlainLocationField(
+        based_fields=["address"],
+        zoom=7
+    )
+    
+    def __str__(self):
+        return self.name
+```
+
+### Admin Configuration
+
+Use Unfold's location widget in your admin:
+
+```python admin.py
+from django.contrib import admin
+from django import forms
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminLocationWidget
+from .models import Venue
+
+class VenueAdminForm(forms.ModelForm):
+    class Meta:
+        model = Venue
+        fields = "__all__"
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["location"].widget = UnfoldAdminLocationWidget(
+            based_fields=["address"],
+            zoom=7
+        )
+
+@admin.register(Venue)
+class VenueAdmin(ModelAdmin):
+    form = VenueAdminForm
+    list_display = ["name", "address", "location"]
+    search_fields = ["name", "address"]
+```
+
+## Widget Options
+
+### Based Fields
+
+Automatically geocode based on other fields:
+
+```python
+self.fields["location"].widget = UnfoldAdminLocationWidget(
+    based_fields=["city", "address"],  # Use city and address for geocoding
+    zoom=12
+)
+```
+
+When users fill in the city and address fields, the map automatically updates to show the location.
+
+### Zoom Level
+
+Set the default zoom level:
+
+```python
+self.fields["location"].widget = UnfoldAdminLocationWidget(
+    based_fields=["address"],
+    zoom=15  # Higher number = more zoomed in
+)
+```
+
+### Suffix
+
+Add a custom suffix to the widget:
+
+```python
+self.fields["location"].widget = UnfoldAdminLocationWidget(
+    based_fields=["address"],
+    suffix="📍"  # Custom marker
+)
+```
+
+## Field Types
+
+Django Location Field provides different field types:
+
+### PlainLocationField
+
+Stores coordinates as a string:
+
+```python models.py
+from location_field.models.plain import PlainLocationField
+
+class Store(models.Model):
+    location = PlainLocationField(based_fields=["address"], zoom=7)
+    # Stored as: "40.7128,-74.0060"
+```
+
+### SpatialLocationField
+
+Uses GeoDjango for spatial operations:
+
+```python models.py
+from location_field.models.spatial import SpatialLocationField
+
+class Restaurant(models.Model):
+    location = SpatialLocationField(based_fields=["address"], zoom=7)
+    # Stored as PostGIS Point
+```
+
+<Note>
+  SpatialLocationField requires GeoDjango and a spatial database like PostGIS.
+</Note>
+
+## Working with Locations
+
+### Accessing Coordinates
+
+```python
+venue = Venue.objects.get(id=1)
+
+# Get coordinates as string
+print(venue.location)  # "40.7128,-74.0060"
+
+# Parse coordinates
+latitude, longitude = venue.location.split(",")
+latitude = float(latitude)
+longitude = float(longitude)
+
+print(f"Lat: {latitude}, Lon: {longitude}")
+```
+
+### Setting Coordinates
+
+```python
+from myapp.models import Venue
+
+# Create venue with coordinates
+venue = Venue.objects.create(
+    name="Empire State Building",
+    address="350 5th Ave, New York, NY 10118",
+    location="40.748817,-73.985428"  # lat,lon format
+)
+```
+
+### Querying Locations
+
+```python
+# Find venues with coordinates
+venues = Venue.objects.exclude(location="")
+
+# Filter by specific location
+venue = Venue.objects.filter(location="40.7128,-74.0060")
+```
+
+## Advanced Configuration
+
+### Multiple Location Fields
+
+```python models.py
+class Event(models.Model):
+    name = models.CharField(max_length=200)
+    
+    # Primary venue
+    venue_address = models.TextField()
+    venue_location = PlainLocationField(
+        based_fields=["venue_address"],
+        zoom=12
+    )
+    
+    # Parking location
+    parking_address = models.TextField(blank=True)
+    parking_location = PlainLocationField(
+        based_fields=["parking_address"],
+        zoom=15,
+        blank=True
+    )
+```
+
+```python admin.py
+class EventAdminForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.fields["venue_location"].widget = UnfoldAdminLocationWidget(
+            based_fields=["venue_address"],
+            zoom=12
+        )
+        
+        self.fields["parking_location"].widget = UnfoldAdminLocationWidget(
+            based_fields=["parking_address"],
+            zoom=15
+        )
+```
+
+### Custom Map Configuration
+
+Customize the map provider and settings:
+
+```python settings.py
+# Default is OpenStreetMap
+LOCATION_FIELD = {
+    "provider.google.api": "//maps.google.com/maps/api/js?sensor=false",
+    "provider.google.api_key": "YOUR_GOOGLE_MAPS_API_KEY",
+    "provider.google.api_libraries": "",
+    "provider.google.map.type": "ROADMAP",
+}
+```
+
+### Geocoding
+
+Add automatic geocoding:
+
+```python models.py
+from django.contrib.gis.geos import Point
+
+class Place(models.Model):
+    name = models.CharField(max_length=200)
+    address = models.TextField()
+    location = PlainLocationField(based_fields=["address"], zoom=7)
+    
+    def save(self, *args, **kwargs):
+        # Auto-geocode if location is empty
+        if not self.location and self.address:
+            # Use geocoding service
+            coordinates = geocode_address(self.address)
+            if coordinates:
+                self.location = f"{coordinates['lat']},{coordinates['lon']}"
+        
+        super().save(*args, **kwargs)
+```
+
+## Integration with GeoDjango
+
+For spatial queries, use SpatialLocationField:
+
+```python models.py
+from django.contrib.gis.db import models
+from location_field.models.spatial import SpatialLocationField
+
+class Location(models.Model):
+    name = models.CharField(max_length=200)
+    point = SpatialLocationField(based_fields=["address"], zoom=7)
+    
+    objects = models.Manager()
+```
+
+### Spatial Queries
+
+```python
+from django.contrib.gis.geos import Point
+from django.contrib.gis.measure import D
+
+# Find locations within 10km of a point
+reference_point = Point(-73.985428, 40.748817, srid=4326)
+
+nearby = Location.objects.filter(
+    point__distance_lte=(reference_point, D(km=10))
+)
+
+# Find closest location
+closest = Location.objects.annotate(
+    distance=models.Distance("point", reference_point)
+).order_by("distance").first()
+```
+
+## Display on Frontend
+
+### Show Map in Templates
+
+```django templates/venue_detail.html
+{% load static %}
+
+<div class="venue-map">
+    <h2>{{ venue.name }}</h2>
+    <p>{{ venue.address }}</p>
+    
+    {% if venue.location %}
+        <div id="map" style="width: 100%; height: 400px;"></div>
+        
+        <script>
+            var coordinates = "{{ venue.location }}".split(",");
+            var lat = parseFloat(coordinates[0]);
+            var lon = parseFloat(coordinates[1]);
+            
+            // Initialize map with your preferred library
+            var map = L.map('map').setView([lat, lon], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            L.marker([lat, lon]).addTo(map)
+                .bindPopup("{{ venue.name }}");
+        </script>
+    {% endif %}
+</div>
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Store Locator">
+    Display store locations on a map:
+    
+    ```python models.py
+    class Store(models.Model):
+        name = models.CharField(max_length=200)
+        address = models.TextField()
+        city = models.CharField(max_length=100)
+        location = PlainLocationField(
+            based_fields=["address", "city"],
+            zoom=12
+        )
+        phone = models.CharField(max_length=20)
+        hours = models.TextField()
+    ```
+  </Accordion>
+  
+  <Accordion title="Event Venues">
+    Manage event locations:
+    
+    ```python models.py
+    class Event(models.Model):
+        name = models.CharField(max_length=200)
+        venue_name = models.CharField(max_length=200)
+        venue_address = models.TextField()
+        location = PlainLocationField(
+            based_fields=["venue_address"],
+            zoom=15
+        )
+        event_date = models.DateTimeField()
+    ```
+  </Accordion>
+  
+  <Accordion title="Delivery Zones">
+    Define delivery areas:
+    
+    ```python models.py
+    class DeliveryZone(models.Model):
+        name = models.CharField(max_length=100)
+        center_location = PlainLocationField(
+            based_fields=["name"],
+            zoom=10
+        )
+        radius_km = models.DecimalField(max_digits=5, decimal_places=2)
+    ```
+  </Accordion>
+  
+  <Accordion title="Property Listings">
+    Real estate locations:
+    
+    ```python models.py
+    class Property(models.Model):
+        title = models.CharField(max_length=200)
+        address = models.TextField()
+        city = models.CharField(max_length=100)
+        location = PlainLocationField(
+            based_fields=["address", "city"],
+            zoom=14
+        )
+        price = models.DecimalField(max_digits=10, decimal_places=2)
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Map Providers
+
+### OpenStreetMap (Default)
+
+Free and open source:
+
+```python
+# No configuration needed, works out of the box
+```
+
+### Google Maps
+
+Requires API key:
+
+```python settings.py
+LOCATION_FIELD = {
+    "map.provider": "google",
+    "provider.google.api_key": "YOUR_API_KEY",
+}
+```
+
+### Mapbox
+
+Alternative provider:
+
+```python settings.py
+LOCATION_FIELD = {
+    "map.provider": "mapbox",
+    "provider.mapbox.access_token": "YOUR_TOKEN",
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Map not displaying">
+    Ensure JavaScript is enabled and check browser console for errors. Verify that the map provider API key is correct if using Google Maps or Mapbox.
+  </Accordion>
+  
+  <Accordion title="Geocoding not working">
+    Check that `based_fields` are correctly specified and contain valid address data. Ensure the geocoding service is accessible.
+  </Accordion>
+  
+  <Accordion title="Coordinates not saving">
+    Verify that the location field is not marked as read-only and that the form is properly configured with the UnfoldAdminLocationWidget.
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Django Location Field" icon="book" href="https://github.com/caioariede/django-location-field">
+    Official GitHub repository and documentation
+  </Card>
+  
+  <Card title="GeoDjango Docs" icon="book" href="https://docs.djangoproject.com/en/stable/ref/contrib/gis/">
+    Django's geographic framework documentation
+  </Card>
+</CardGroup>
+
+<Tip>
+  For better user experience, pre-populate the address field to automatically position the map when creating new records.
+</Tip>

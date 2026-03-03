@@ -1,0 +1,255 @@
+---
+title: 'Settings configuration'
+description: 'Complete reference for Django Unfold settings and configuration options'
+keywords: ['settings', 'configuration', 'unfold', 'django', 'admin']
+---
+
+Django Unfold provides extensive configuration options through the `UNFOLD` setting in your Django settings file. All settings are optional and have sensible defaults.
+
+## Configuration structure
+
+Add the `UNFOLD` dictionary to your Django settings:
+
+```python settings.py
+UNFOLD = {
+    "SITE_TITLE": "My Admin",
+    "SITE_HEADER": "Administration",
+    # ... other settings
+}
+```
+
+## Site branding
+
+<ParamField path="SITE_TITLE" type="string" default="None">
+  The site title displayed in the browser tab and admin header.
+</ParamField>
+
+<ParamField path="SITE_HEADER" type="string" default="None">
+  The main header text displayed in the admin interface.
+</ParamField>
+
+<ParamField path="SITE_SUBHEADER" type="string" default="None">
+  Subheader text displayed below the main header.
+</ParamField>
+
+<ParamField path="SITE_DROPDOWN" type="string" default="None">
+  Content for the site dropdown menu in the header.
+</ParamField>
+
+<ParamField path="SITE_URL" type="string" default="/">
+  URL the site logo/title links to.
+</ParamField>
+
+<ParamField path="SITE_ICON" type="string" default="None">
+  Path to the icon displayed in the admin interface.
+</ParamField>
+
+<ParamField path="SITE_SYMBOL" type="string" default="None">
+  Symbol or short text displayed alongside the site title.
+</ParamField>
+
+<ParamField path="SITE_LOGO" type="string" default="None">
+  Path to the logo image displayed in the admin interface.
+</ParamField>
+
+## Display options
+
+<ParamField path="SHOW_HISTORY" type="boolean" default="True">
+  Show the history link in the admin interface for objects.
+</ParamField>
+
+<ParamField path="SHOW_VIEW_ON_SITE" type="boolean" default="True">
+  Display the "View on site" button when available.
+</ParamField>
+
+<ParamField path="SHOW_LANGUAGES" type="boolean" default="False">
+  Enable language switcher in the admin interface.
+</ParamField>
+
+<ParamField path="LANGUAGE_FLAGS" type="object" default="{}">
+  Dictionary mapping language codes to flag icons or images.
+</ParamField>
+
+<ParamField path="SHOW_BACK_BUTTON" type="boolean" default="False">
+  Show a back button in the admin interface navigation.
+</ParamField>
+
+## Environment
+
+<ParamField path="ENVIRONMENT" type="string" default="None">
+  Environment name displayed in the admin interface (e.g., "Development", "Staging", "Production").
+</ParamField>
+
+<ParamField path="ENVIRONMENT_TITLE_PREFIX" type="string" default="None">
+  Prefix added to browser tab titles based on environment.
+</ParamField>
+
+## Dashboard
+
+<ParamField path="DASHBOARD_CALLBACK" type="string" default="None">
+  Python path to a callback function that customizes the dashboard view.
+</ParamField>
+
+## Forms
+
+<ParamField path="FORMS" type="object" default="{classes: {...}}">
+  Configuration for form widget styles and classes.
+
+  <Expandable title="classes">
+    <ParamField path="text_input" type="string">
+      CSS classes for text input fields.
+    </ParamField>
+    
+    <ParamField path="checkbox" type="string">
+      CSS classes for checkbox inputs.
+    </ParamField>
+    
+    <ParamField path="button" type="string">
+      CSS classes for buttons.
+    </ParamField>
+    
+    <ParamField path="radio" type="string">
+      CSS classes for radio buttons.
+    </ParamField>
+    
+    <ParamField path="switch" type="string">
+      CSS classes for switch toggles.
+    </ParamField>
+    
+    <ParamField path="file" type="string">
+      CSS classes for file upload inputs.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Account
+
+<ParamField path="ACCOUNT" type="object" default="{navigation: []}">
+  Account menu configuration.
+
+  <Expandable title="properties">
+    <ParamField path="navigation" type="array">
+      List of navigation items displayed in the account dropdown menu.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Languages
+
+<ParamField path="LANGUAGES" type="object" default="{action: None, navigation: []}">
+  Language switcher configuration.
+
+  <Expandable title="properties">
+    <ParamField path="action" type="string">
+      URL or action for language switching.
+    </ParamField>
+    
+    <ParamField path="navigation" type="array">
+      List of language options.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Command palette
+
+<ParamField path="COMMAND" type="object" default="{search_models: False, show_history: False, search_callback: None}">
+  Command palette search configuration.
+
+  <Expandable title="properties">
+    <ParamField path="search_models" type="boolean" default="False">
+      Enable searching through registered models in the command palette.
+    </ParamField>
+    
+    <ParamField path="show_history" type="boolean" default="False">
+      Display search history in the command palette.
+    </ParamField>
+    
+    <ParamField path="search_callback" type="string" default="None">
+      Python path to a custom callback function for search functionality.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Sidebar
+
+<ParamField path="SIDEBAR" type="object" default="{show_search: False, command_search: False, show_all_applications: False, navigation: []}">
+  Sidebar navigation configuration.
+
+  <Expandable title="properties">
+    <ParamField path="show_search" type="boolean" default="False">
+      Display search box in the sidebar.
+    </ParamField>
+    
+    <ParamField path="command_search" type="boolean" default="False">
+      Enable command palette search integration in sidebar.
+    </ParamField>
+    
+    <ParamField path="show_all_applications" type="boolean" default="False">
+      Show all registered applications in the sidebar.
+    </ParamField>
+    
+    <ParamField path="navigation" type="array">
+      Custom navigation structure for the sidebar.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Tabs
+
+<ParamField path="TABS" type="array" default="[]">
+  Configuration for tab navigation in the admin interface. Define custom tabs for organizing admin sections.
+</ParamField>
+
+## Extensions
+
+<ParamField path="EXTENSIONS" type="object" default="{modeltranslation: {flags: {}}}">
+  Configuration for Django Unfold extensions.
+
+  <Expandable title="properties">
+    <ParamField path="modeltranslation" type="object">
+      Settings for django-modeltranslation integration.
+      
+      <Expandable title="properties">
+        <ParamField path="flags" type="object" default="{}">
+          Flag icons for languages in modeltranslation interface.
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Example configuration
+
+```python settings.py
+UNFOLD = {
+    "SITE_TITLE": "My Admin Panel",
+    "SITE_HEADER": "Administration",
+    "SITE_URL": "/",
+    "SITE_ICON": "/static/icon.svg",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "ENVIRONMENT": "production",
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+    },
+    "TABS": [
+        {
+            "models": [
+                "app.Model1",
+                "app.Model2",
+            ],
+            "items": [
+                {
+                    "title": "Dashboard",
+                    "link": "/admin/",
+                },
+            ],
+        },
+    ],
+}
+```
+
+<Info>
+Settings are merged with defaults using deep merging. You only need to specify the settings you want to override.
+</Info>

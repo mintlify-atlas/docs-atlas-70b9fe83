@@ -1,0 +1,661 @@
+---
+title: 'Checkbox & Radio Filters'
+description: 'Multiple and single selection filters using checkboxes and radio buttons'
+icon: 'square-check'
+---
+
+## Overview
+
+Checkbox and radio filters provide visual selection interfaces that display all available options at once. Checkboxes allow multiple selections, while radio buttons enforce single selection.
+
+<Info>
+These filters are ideal when you have 2-10 options that users need to see simultaneously.
+</Info>
+
+## Available Choice Filters
+
+<CardGroup cols={2}>
+  <Card title="RadioFilter" icon="circle-dot">
+    Single selection with custom options
+  </Card>
+  
+  <Card title="CheckboxFilter" icon="square-check">
+    Multiple selection with custom options
+  </Card>
+  
+  <Card title="ChoicesRadioFilter" icon="list">
+    Radio buttons for model choice fields
+  </Card>
+  
+  <Card title="ChoicesCheckboxFilter" icon="list-check">
+    Checkboxes for model choice fields
+  </Card>
+  
+  <Card title="BooleanRadioFilter" icon="toggle-on">
+    Yes/No/All filter for boolean fields
+  </Card>
+  
+  <Card title="RelatedCheckboxFilter" icon="link">
+    Multiple selection for related objects
+  </Card>
+  
+  <Card title="AllValuesCheckboxFilter" icon="database">
+    Checkboxes for all unique field values
+  </Card>
+</CardGroup>
+
+## RadioFilter
+
+Single selection using radio buttons.
+
+### Basic Usage
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import RadioFilter
+
+from .models import Product
+
+
+class StatusRadioFilter(RadioFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("draft", "Draft"),
+            ("published", "Published"),
+            ("archived", "Archived"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(status=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "status"]
+    list_filter = [StatusRadioFilter]
+```
+
+### Removing "All" Option
+
+By default, radio filters include an "All" option:
+
+```python admin.py
+class StatusRadioFilter(RadioFilter):
+    title = "Status"
+    parameter_name = "status"
+    all_option = None  # Remove "All" option
+
+    def lookups(self, request, model_admin):
+        return (
+            ("active", "Active"),
+            ("inactive", "Inactive"),
+        )
+```
+
+### Custom "All" Label
+
+```python admin.py
+class StatusRadioFilter(RadioFilter):
+    title = "Status"
+    parameter_name = "status"
+    all_option = ["", "Any Status"]  # Custom label
+
+    def lookups(self, request, model_admin):
+        return (
+            ("active", "Active"),
+            ("inactive", "Inactive"),
+        )
+```
+
+## CheckboxFilter
+
+Multiple selection using checkboxes.
+
+```python admin.py
+from unfold.contrib.filters.admin import CheckboxFilter
+
+
+class TagsCheckboxFilter(CheckboxFilter):
+    title = "Tags"
+    parameter_name = "tags"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("featured", "Featured"),
+            ("new", "New Arrival"),
+            ("sale", "On Sale"),
+            ("trending", "Trending"),
+        )
+
+    def queryset(self, request, queryset):
+        # value() returns a list of selected items
+        selected_values = self.value()
+        
+        if selected_values:
+            return queryset.filter(tags__name__in=selected_values)
+        
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [TagsCheckboxFilter]
+```
+
+<Tip>
+With `CheckboxFilter`, the `value()` method returns a list of all selected values, allowing for multiple selections.
+</Tip>
+
+## ChoicesRadioFilter
+
+Automatic radio filter for model fields with choices.
+
+### Model with Choices
+
+```python models.py
+from django.db import models
+
+
+class Product(models.Model):
+    class Priority(models.TextChoices):
+        LOW = "low", "Low Priority"
+        MEDIUM = "medium", "Medium Priority"
+        HIGH = "high", "High Priority"
+        URGENT = "urgent", "Urgent"
+
+    name = models.CharField(max_length=200)
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.MEDIUM,
+    )
+```
+
+### Apply Filter
+
+```python admin.py
+from unfold.contrib.filters.admin import ChoicesRadioFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "priority"]
+    list_filter = [
+        ("priority", ChoicesRadioFilter),
+    ]
+```
+
+<Note>
+The filter automatically uses the choices defined in your model. No need to specify lookups manually.
+</Note>
+
+## ChoicesCheckboxFilter
+
+Multiple selection for choice fields.
+
+```python models.py
+class Article(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        REVIEW = "review", "In Review"
+        PUBLISHED = "published", "Published"
+        ARCHIVED = "archived", "Archived"
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+    )
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import ChoicesCheckboxFilter
+
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_filter = [
+        ("status", ChoicesCheckboxFilter),
+    ]
+```
+
+## BooleanRadioFilter
+
+Specialized filter for boolean fields with Yes/No/All options.
+
+### Basic Usage
+
+```python models.py
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    is_active = models.BooleanField(default=True)
+    is_featured = models.BooleanField(default=False)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import BooleanRadioFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "is_active", "is_featured"]
+    list_filter = [
+        ("is_active", BooleanRadioFilter),
+        ("is_featured", BooleanRadioFilter),
+    ]
+```
+
+This creates three radio options:
+- **All**: Show all records
+- **Yes**: Show only `True` values
+- **No**: Show only `False` values
+
+### Horizontal Layout
+
+The filter displays options horizontally for better space usage:
+
+```python
+# Renders as: ○ All  ○ Yes  ○ No
+```
+
+## RelatedCheckboxFilter
+
+Multiple selection for foreign key relationships.
+
+### Basic Example
+
+```python models.py
+class Category(models.Model):
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import RelatedCheckboxFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "category"]
+    list_filter = [
+        ("category", RelatedCheckboxFilter),
+    ]
+```
+
+<Info>
+Users can select multiple categories to filter products. The filter uses OR logic by default.
+</Info>
+
+### With Related Manager
+
+```python models.py
+class Tag(models.Model):
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    tags = models.ManyToManyField(Tag)
+```
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    list_filter = [
+        ("tags", RelatedCheckboxFilter),
+    ]
+```
+
+## AllValuesCheckboxFilter
+
+Automatically create checkboxes for all unique values in a field.
+
+```python models.py
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    manufacturer = models.CharField(max_length=100)
+```
+
+```python admin.py
+from unfold.contrib.filters.admin import AllValuesCheckboxFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("manufacturer", AllValuesCheckboxFilter),
+    ]
+```
+
+<Warning>
+This filter queries the database to find all unique values. Use with caution on fields with many distinct values.
+</Warning>
+
+## Faceted Counts
+
+All checkbox and radio filters support showing counts:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import ChoicesRadioFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    show_facets = admin.ShowFacets.ALWAYS
+    list_filter = [
+        ("status", ChoicesRadioFilter),  # Shows "Published (42)"
+    ]
+```
+
+## Advanced Customization
+
+### Dynamic Lookups
+
+```python admin.py
+from django.db.models import Count
+
+
+class PopularCategoriesFilter(CheckboxFilter):
+    title = "Popular Categories"
+    parameter_name = "popular_category"
+
+    def lookups(self, request, model_admin):
+        # Only show categories with 10+ products
+        categories = Category.objects.annotate(
+            product_count=Count('product')
+        ).filter(product_count__gte=10)
+        
+        return [(cat.id, cat.name) for cat in categories]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(category_id__in=self.value())
+        return queryset
+```
+
+### Custom Ordering
+
+```python admin.py
+class OrderedStatusFilter(RadioFilter):
+    title = "Status"
+    parameter_name = "status"
+
+    def lookups(self, request, model_admin):
+        # Custom order: most important statuses first
+        return (
+            ("urgent", "🔴 Urgent"),
+            ("high", "🟡 High Priority"),
+            ("medium", "🟢 Medium Priority"),
+            ("low", "⚪ Low Priority"),
+        )
+```
+
+### Conditional Display
+
+```python admin.py
+class ConditionalFilter(CheckboxFilter):
+    title = "Tags"
+    parameter_name = "tags"
+
+    def lookups(self, request, model_admin):
+        # Show different options based on user permissions
+        if request.user.is_superuser:
+            return (
+                ("public", "Public"),
+                ("private", "Private"),
+                ("internal", "Internal"),
+            )
+        else:
+            return (
+                ("public", "Public"),
+            )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(visibility__in=self.value())
+        return queryset
+```
+
+## Combining Multiple Filters
+
+```python admin.py
+from unfold.contrib.filters.admin import (
+    BooleanRadioFilter,
+    CheckboxFilter,
+    RelatedCheckboxFilter,
+)
+
+
+class TagFilter(CheckboxFilter):
+    title = "Tags"
+    parameter_name = "tags"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("featured", "Featured"),
+            ("new", "New"),
+            ("sale", "On Sale"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(tags__name__in=self.value())
+        return queryset
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("is_active", BooleanRadioFilter),
+        ("category", RelatedCheckboxFilter),
+        TagFilter,
+    ]
+```
+
+## Form Customization
+
+### Custom Form Class
+
+```python admin.py
+from unfold.contrib.filters.forms import CheckboxForm
+
+
+class StyledCheckboxForm(CheckboxForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add custom styling or attributes
+        for field in self.fields.values():
+            field.widget.attrs.update({
+                'class': 'custom-checkbox',
+            })
+
+
+class StyledCheckboxFilter(CheckboxFilter):
+    form_class = StyledCheckboxForm
+    title = "Categories"
+    parameter_name = "category"
+```
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Limiting options">
+    For filters with many options, consider limiting display:
+
+    ```python admin.py
+    class LimitedCheckboxFilter(CheckboxFilter):
+        MAX_OPTIONS = 20
+
+        def lookups(self, request, model_admin):
+            categories = Category.objects.all()[:self.MAX_OPTIONS]
+            return [(cat.id, cat.name) for cat in categories]
+    ```
+  </Accordion>
+
+  <Accordion title="Efficient queries">
+    Use `select_related()` or `prefetch_related()`:
+
+    ```python admin.py
+    @admin.register(Product)
+    class ProductAdmin(ModelAdmin):
+        list_filter = [("category", RelatedCheckboxFilter)]
+
+        def get_queryset(self, request):
+            return super().get_queryset(request).select_related('category')
+    ```
+  </Accordion>
+
+  <Accordion title="Caching lookups">
+    Cache expensive lookup queries:
+
+    ```python admin.py
+    from django.core.cache import cache
+
+    class CachedCheckboxFilter(CheckboxFilter):
+        def lookups(self, request, model_admin):
+            cache_key = f"filter_lookups_{self.parameter_name}"
+            lookups = cache.get(cache_key)
+            
+            if lookups is None:
+                lookups = self._compute_lookups()
+                cache.set(cache_key, lookups, 300)  # 5 minutes
+            
+            return lookups
+
+        def _compute_lookups(self):
+            # Expensive query here
+            return Category.objects.all().values_list('id', 'name')
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## User Experience Guidelines
+
+<Steps>
+  <Step title="Choose between radio and checkbox">
+    - **Radio**: Single selection, mutually exclusive options (status, priority)
+    - **Checkbox**: Multiple selection, combinable options (tags, categories)
+  </Step>
+
+  <Step title="Limit visible options">
+    Keep options between 2-10 for best UX. For more options, consider dropdown or autocomplete filters.
+  </Step>
+
+  <Step title="Use clear labels">
+    Make option labels descriptive and concise:
+    ```python
+    ("active", "Active")  # Good
+    ("1", "Status 1")     # Bad
+    ```
+  </Step>
+
+  <Step title="Order logically">
+    Order options by:
+    - Frequency of use
+    - Importance
+    - Alphabetically
+    - Custom business logic
+  </Step>
+</Steps>
+
+## API Reference
+
+### RadioFilter
+
+<ParamField path="title" type="str" required>
+  Display name for the filter
+</ParamField>
+
+<ParamField path="parameter_name" type="str" required>
+  URL parameter name
+</ParamField>
+
+<ParamField path="all_option" type="list[str] | None" default='["", "All"]'>
+  Option to clear filter. Set to `None` to remove.
+</ParamField>
+
+<ParamField path="form_class" type="type" default="RadioForm">
+  Form class for rendering
+</ParamField>
+
+### CheckboxFilter
+
+<ParamField path="title" type="str" required>
+  Display name for the filter
+</ParamField>
+
+<ParamField path="parameter_name" type="str" required>
+  URL parameter name
+</ParamField>
+
+<ParamField path="all_option" type="None" default="None">
+  Checkbox filters don't have an "All" option
+</ParamField>
+
+<ParamField path="form_class" type="type" default="CheckboxForm">
+  Form class for rendering
+</ParamField>
+
+### BooleanRadioFilter
+
+<ParamField path="all_option" type="list[str]" default='["", "All"]'>
+  Option to show all records
+</ParamField>
+
+<ParamField path="form_class" type="type" default="HorizontalRadioForm">
+  Uses horizontal layout by default
+</ParamField>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When to use radio filters">
+    - Status fields with 3-5 states
+    - Priority levels
+    - Boolean-like fields with more than 2 options
+    - When only one choice makes sense
+  </Accordion>
+
+  <Accordion title="When to use checkbox filters">
+    - Tags or categories
+    - Features or attributes
+    - Any field where multiple selections are valid
+    - Filtering by multiple related objects
+  </Accordion>
+
+  <Accordion title="When to avoid">
+    - More than 10 options (use dropdown or autocomplete)
+    - Very long option labels (use dropdown)
+    - Dynamic data with frequently changing options
+    - Fields with thousands of unique values
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dropdown Filters" icon="angle-down" href="/filters/dropdown">
+    Learn about dropdown alternatives for more options
+  </Card>
+  
+  <Card title="Filter Overview" icon="filter" href="/filters/overview">
+    Return to filters overview
+  </Card>
+</CardGroup>

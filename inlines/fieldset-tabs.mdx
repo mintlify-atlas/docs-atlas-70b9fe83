@@ -1,0 +1,341 @@
+---
+title: "Fieldset Tabs"
+description: "Create tabbed interfaces within your fieldsets for better organization"
+---
+
+Fieldset tabs allow you to organize form fields into a tabbed interface, making complex forms more manageable and improving the user experience.
+
+## Overview
+
+Fieldset tabs enable you to group related fields into tabs within your ModelAdmin's change form. This is particularly useful for models with many fields or complex data structures.
+
+<Frame>
+  <img src="/images/fieldset-tabs-example.png" alt="Fieldset tabs showing organized form fields" />
+</Frame>
+
+## Basic Setup
+
+Create fieldset tabs by adding the `tab` class to your fieldsets:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .models import Product
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'description']
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': ['price', 'cost', 'tax_rate', 'discount']
+        }),
+        ('Inventory', {
+            'classes': ['tab'],
+            'fields': ['stock_quantity', 'reorder_level', 'warehouse_location']
+        }),
+        ('Specifications', {
+            'classes': ['tab'],
+            'fields': ['weight', 'dimensions', 'color', 'material']
+        }),
+    ]
+```
+
+<Info>
+  The `tab` class in the `classes` list converts a fieldset into a tab. Each fieldset with the `tab` class becomes a separate tab in the interface.
+</Info>
+
+## Tab Requirements
+
+For a fieldset to be recognized as a tab, it must meet these requirements:
+
+1. Include `'tab'` in the `classes` list
+2. Have a name (the first element of the fieldset tuple)
+3. The name must be a non-empty string
+
+```python admin.py
+# ✓ Valid tab
+('Tab Name', {
+    'classes': ['tab'],
+    'fields': ['field1', 'field2']
+})
+
+# ✗ Invalid - missing 'tab' class
+('Tab Name', {
+    'classes': [],
+    'fields': ['field1', 'field2']
+})
+
+# ✗ Invalid - no name
+(None, {
+    'classes': ['tab'],
+    'fields': ['field1', 'field2']
+})
+```
+
+## Active Tab Detection
+
+The system automatically determines which tab should be active:
+
+1. If there are validation errors, the first tab with errors is activated
+2. Otherwise, the first tab is activated by default
+
+```python admin.py
+from unfold.admin import ModelAdmin
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku']
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': ['price', 'cost']  # If validation fails here,
+        }),                              # this tab will be active
+    ]
+```
+
+<Check>
+  The active tab is determined using the `tabs_active` template tag, which checks for field errors in each fieldset.
+</Check>
+
+## Error Indication
+
+Tabs with validation errors are automatically highlighted with a badge showing the error count:
+
+```python admin.py
+from django.core.exceptions import ValidationError
+from unfold.admin import ModelAdmin
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'description']
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': ['price', 'cost', 'tax_rate']
+        }),
+    ]
+    
+    def clean(self):
+        # Validation errors will highlight the relevant tab
+        if self.price < self.cost:
+            raise ValidationError({
+                'price': 'Price must be higher than cost'
+            })
+```
+
+<Warning>
+  Error badges are automatically added. The system counts errors in each tab using the `tabs_errors_count` template tag.
+</Warning>
+
+## Combining Tabs with Other Fieldset Options
+
+Fieldset tabs support all standard Django fieldset options:
+
+```python admin.py
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku'],
+            'description': 'Enter the basic product details'
+        }),
+        ('Advanced Settings', {
+            'classes': ['tab', 'collapse'],  # Tab is collapsible
+            'fields': ['internal_notes', 'admin_only_field']
+        }),
+    ]
+```
+
+<Info>
+  You can combine the `tab` class with other classes like `collapse`, `wide`, or custom CSS classes.
+</Info>
+
+## Readonly Fields in Tabs
+
+Readonly fields work seamlessly within fieldset tabs:
+
+```python admin.py
+from django.utils.html import format_html
+from unfold.admin import ModelAdmin
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    readonly_fields = ['created_at', 'updated_at', 'profit_margin']
+    
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'description']
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': ['price', 'cost', 'profit_margin']  # Includes readonly field
+        }),
+        ('Metadata', {
+            'classes': ['tab'],
+            'fields': ['created_at', 'updated_at']  # All readonly
+        }),
+    ]
+    
+    @admin.display(description='Profit Margin')
+    def profit_margin(self, obj):
+        if obj.price and obj.cost:
+            margin = ((obj.price - obj.cost) / obj.price) * 100
+            return format_html('<strong>{:.2f}%</strong>', margin)
+        return '-'
+```
+
+## Inline Fields Within Tabs
+
+You can include inline-style fields within tabs:
+
+```python admin.py
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = [
+        ('Dimensions', {
+            'classes': ['tab'],
+            'fields': [
+                ('width', 'height', 'depth'),  # Multiple fields on same line
+                ('weight', 'unit')
+            ]
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': [
+                ('price', 'currency'),
+                ('discount_percentage', 'discount_end_date')
+            ]
+        }),
+    ]
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Group related fields" icon="layer-group">
+    Organize fields by logical categories. Keep related information together in the same tab.
+    
+    ```python
+    # Good: Related pricing fields together
+    ('Pricing', {
+        'classes': ['tab'],
+        'fields': ['price', 'cost', 'tax_rate', 'discount']
+    })
+    
+    # Avoid: Unrelated fields mixed together
+    ('Mixed', {
+        'classes': ['tab'],
+        'fields': ['price', 'description', 'warehouse', 'color']
+    })
+    ```
+  </Accordion>
+  
+  <Accordion title="Use descriptive tab names" icon="tag">
+    Choose clear, concise names that describe the content of each tab.
+    
+    ```python
+    # Good names
+    'Basic Information'
+    'Pricing & Discounts'
+    'Inventory Management'
+    
+    # Avoid vague names
+    'Tab 1'
+    'Other'
+    'Misc'
+    ```
+  </Accordion>
+  
+  <Accordion title="Prioritize important fields" icon="star">
+    Place the most frequently used or important fields in the first tab.
+    
+    ```python
+    fieldsets = [
+        ('Essential Details', {  # First tab - most important
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'price', 'stock']
+        }),
+        ('Additional Information', {  # Later tabs - less critical
+            'classes': ['tab'],
+            'fields': ['supplier', 'notes']
+        }),
+    ]
+    ```
+  </Accordion>
+  
+  <Accordion title="Limit the number of tabs" icon="list">
+    Keep the number of tabs reasonable (ideally 3-7) to avoid overwhelming users.
+  </Accordion>
+</AccordionGroup>
+
+## Add/Change Form Variations
+
+You can use different fieldsets for add and change forms:
+
+```python admin.py
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    # Standard fieldsets for change form
+    fieldsets = [
+        ('Basic Information', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'description']
+        }),
+        ('Pricing', {
+            'classes': ['tab'],
+            'fields': ['price', 'cost', 'tax_rate']
+        }),
+    ]
+    
+    # Simpler fieldsets for add form
+    add_fieldsets = [
+        ('New Product', {
+            'classes': ['tab'],
+            'fields': ['name', 'sku', 'price']
+        }),
+    ]
+```
+
+<Info>
+  The `add_fieldsets` attribute is respected by Unfold's ModelAdmin. Use it to provide a simplified form for creating new objects.
+</Info>
+
+## Technical Details
+
+<ParamField path="classes" type="list">
+  Must include `'tab'` for the fieldset to be rendered as a tab.
+</ParamField>
+
+The fieldset tab system uses:
+- `unfold.templatetags.unfold.tabs` - Extracts tab fieldsets
+- `unfold.templatetags.unfold.tabs_active` - Determines active tab
+- `unfold.templatetags.unfold.tabs_errors_count` - Counts errors per tab
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Inline Tabs" icon="folder-tree" href="/inlines/inline-tabs">
+    Organize multiple inlines in tabs
+  </Card>
+  <Card title="Model Tabs" icon="folders" href="/inlines/model-tabs">
+    Configure navigation tabs for models
+  </Card>
+  <Card title="Forms Overview" icon="input-text" href="/forms/overview">
+    Learn about Unfold's form system
+  </Card>
+  <Card title="Conditional Fields" icon="code-branch" href="/forms/conditional-fields">
+    Show/hide fields based on conditions
+  </Card>
+</CardGroup>

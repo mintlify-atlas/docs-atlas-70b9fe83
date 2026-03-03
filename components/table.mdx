@@ -1,0 +1,259 @@
+---
+title: Table Component
+description: Display tabular data with headers, responsive layout, and optional collapsible rows
+---
+
+The Table component displays structured data in a responsive table format with support for headers, nested tables, collapsible rows, and mobile-friendly layouts.
+
+## Basic Usage
+
+```django
+{% load unfold %}
+
+{% component "unfold/components/table.html" with table=table_data %}
+{% endcomponent %}
+```
+
+## Props
+
+<ParamField path="table" type="dict" required>
+  Dictionary containing table data with `headers` and `rows` keys.
+</ParamField>
+
+<ParamField path="table.headers" type="list">
+  List of header labels for table columns.
+</ParamField>
+
+<ParamField path="table.rows" type="list">
+  List of rows, where each row is a list of cell values or dict with `cols` and optional nested `table`.
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional title displayed above the table.
+</ParamField>
+
+<ParamField path="height" type="integer">
+  Maximum height in pixels. Enables scrolling with sticky headers.
+</ParamField>
+
+<ParamField path="card_included" type="integer">
+  Set to `1` if table is inside a card component (adjusts padding).
+</ParamField>
+
+<ParamField path="striped" type="integer">
+  Set to `1` to enable alternating row background colors.
+</ParamField>
+
+<ParamField path="class" type="string">
+  Additional CSS classes for the table container.
+</ParamField>
+
+## Examples
+
+### Simple Table
+
+```python
+# In your view or template context
+table_data = {
+    'headers': ['Name', 'Email', 'Status'],
+    'rows': [
+        ['John Doe', 'john@example.com', 'Active'],
+        ['Jane Smith', 'jane@example.com', 'Pending'],
+        ['Bob Johnson', 'bob@example.com', 'Active'],
+    ]
+}
+```
+
+```django
+{% component "unfold/components/table.html" with table=table_data %}
+{% endcomponent %}
+```
+
+### Table with Title
+
+```django
+{% component "unfold/components/table.html" with title="User List" table=table_data %}
+{% endcomponent %}
+```
+
+### Striped Rows
+
+```django
+{% component "unfold/components/table.html" with table=table_data striped=1 %}
+{% endcomponent %}
+```
+
+### Scrollable Table
+
+```django
+{% component "unfold/components/table.html" with table=table_data height=400 %}
+{% endcomponent %}
+```
+
+### Table Inside Card
+
+```django
+{% component "unfold/components/card.html" with title="Recent Orders" %}
+  {% component "unfold/components/table.html" with table=table_data card_included=1 striped=1 %}
+  {% endcomponent %}
+{% endcomponent %}
+```
+
+## Using TableSection
+
+From `src/unfold/sections.py:22-75`, Unfold provides a `TableSection` class for displaying related model data:
+
+```python
+from unfold.sections import TableSection
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+class RelatedOrdersSection(TableSection):
+    verbose_name = "Recent Orders"
+    related_name = "order_set"  # Related manager name
+    fields = ["order_number", "created_at", "total", "status"]
+    height = 300  # Optional: max height with scrolling
+
+@admin.register(Customer)
+class CustomerAdmin(ModelAdmin):
+    list_sections = [RelatedOrdersSection]
+```
+
+### Custom Fields in TableSection
+
+```python
+class OrderSection(TableSection):
+    related_name = "order_set"
+    fields = ["order_number", "formatted_total", "status_badge"]
+    
+    def formatted_total(self, obj):
+        return f"${obj.total:.2f}"
+    formatted_total.short_description = "Total"
+    
+    def status_badge(self, obj):
+        color = 'green' if obj.status == 'completed' else 'yellow'
+        return format_html(
+            '<span class="px-2 py-1 bg-{}-100 text-{}-800 rounded">'
+            '{}</span>',
+            color, color, obj.get_status_display()
+        )
+    status_badge.short_description = "Status"
+```
+
+## Advanced Examples
+
+### Table with HTML Content
+
+```python
+from django.utils.html import format_html
+
+def get_table_data():
+    return {
+        'headers': ['Product', 'Price', 'Stock', 'Actions'],
+        'rows': [
+            [
+                'Product A',
+                format_html('<strong>${}</strong>', '29.99'),
+                format_html('<span class="text-green-600">In Stock</span>'),
+                format_html('<a href="#" class="text-primary-600">Edit</a>'),
+            ],
+        ]
+    }
+```
+
+### Nested/Collapsible Rows
+
+```python
+table_data = {
+    'headers': ['Order', 'Customer', 'Total'],
+    'collapsible': True,
+    'rows': [
+        {
+            'cols': ['#1001', 'John Doe', '$125.00'],
+            'table': {
+                'headers': ['Item', 'Quantity', 'Price'],
+                'rows': [
+                    ['Product A', '2', '$50.00'],
+                    ['Product B', '1', '$75.00'],
+                ]
+            }
+        },
+        {
+            'cols': ['#1002', 'Jane Smith', '$89.00'],
+            'table': {
+                'headers': ['Item', 'Quantity', 'Price'],
+                'rows': [
+                    ['Product C', '3', '$89.00'],
+                ]
+            }
+        },
+    ]
+}
+```
+
+### Complete Admin Example
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.sections import TableSection
+from django.utils.html import format_html
+
+class ActivityLogSection(TableSection):
+    verbose_name = "Activity Log"
+    related_name = "activitylog_set"
+    fields = ["timestamp", "action", "user", "status_icon"]
+    height = 400
+    
+    def status_icon(self, obj):
+        icons = {
+            'success': ('check_circle', 'text-green-600'),
+            'error': ('error', 'text-red-600'),
+            'info': ('info', 'text-blue-600'),
+        }
+        icon, color = icons.get(obj.status, ('help', 'text-gray-600'))
+        return format_html(
+            '<span class="material-symbols-outlined {}">{}</span>',
+            color, icon
+        )
+    status_icon.short_description = "Status"
+
+@admin.register(User)
+class UserAdmin(ModelAdmin):
+    list_sections = [ActivityLogSection]
+```
+
+## Mobile Responsiveness
+
+The table component is fully responsive:
+
+- **Desktop**: Traditional table layout
+- **Mobile**: Stacked card layout with labeled fields
+- Labels are automatically generated from headers using the `data-label` attribute
+
+## Styling
+
+Default table styles:
+
+- Border: `border-base-200 dark:border-base-800`
+- Background (header): `bg-base-50 dark:bg-base-900`
+- Striped rows: `bg-base-50 dark:bg-white/[.02]`
+- Sticky header (when height set): `sticky top-0 z-100`
+
+## Accessibility
+
+- Semantic HTML table structure
+- Column headers properly defined with `<th>`
+- Mobile labels preserve context for screen readers
+- Collapsible rows use Alpine.js for keyboard navigation
+
+## Related Components
+
+- [Card](/components/card) - Wrap tables in cards
+- [Button](/components/button) - Add actions to table rows
+- [Progress](/components/progress) - Show progress in table cells
+
+## Source
+
+- Template: `src/unfold/templates/unfold/components/table.html:1`
+- TableSection: `src/unfold/sections.py:22-75`

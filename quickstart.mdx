@@ -1,80 +1,416 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with Django Unfold in minutes - from installation to your first modern admin interface
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first Django admin interface with Unfold. You'll learn how to set up a basic model admin, customize the display, and leverage Unfold's powerful features.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  This guide assumes you've already [installed Django Unfold](/installation). If not, complete the installation first.
 </Note>
+
+## Your First Unfold Admin
+
+### Step 1: Create a Model
+
+First, let's create a simple Django model. For this example, we'll build a blog post model:
+
+```python models.py
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+class Post(models.Model):
+    class StatusChoices(models.TextChoices):
+        DRAFT = "draft", _("Draft")
+        PUBLISHED = "published", _("Published")
+        ARCHIVED = "archived", _("Archived")
+    
+    title = models.CharField(_("Title"), max_length=200)
+    slug = models.SlugField(_("Slug"), max_length=200, unique=True)
+    content = models.TextField(_("Content"))
+    status = models.CharField(
+        _("Status"),
+        max_length=20,
+        choices=StatusChoices.choices,
+        default=StatusChoices.DRAFT,
+    )
+    author = models.ForeignKey(
+        "auth.User",
+        on_delete=models.CASCADE,
+        related_name="posts",
+    )
+    created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
+    
+    class Meta:
+        verbose_name = _("Post")
+        verbose_name_plural = _("Posts")
+        ordering = ["-created_at"]
+    
+    def __str__(self):
+        return self.title
+```
+
+### Step 2: Register with Unfold
+
+Now, create an admin class using Unfold's `ModelAdmin`:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from .models import Post
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    list_display = ["title", "author", "status", "created_at"]
+    list_filter = ["status", "created_at", "author"]
+    search_fields = ["title", "content"]
+    prepopulated_fields = {"slug": ["title"]}
+    
+    fieldsets = (
+        (None, {
+            "fields": ("title", "slug", "content"),
+        }),
+        ("Metadata", {
+            "fields": ("status", "author"),
+        }),
+    )
+```
+
+<Steps>
+  <Step title="Import ModelAdmin">
+    Import `ModelAdmin` from `unfold.admin` instead of `django.contrib.admin`
+  </Step>
+  
+  <Step title="Register Your Model">
+    Use the `@admin.register()` decorator or `admin.site.register()` as usual
+  </Step>
+  
+  <Step title="Configure Display">
+    Use standard Django admin options like `list_display`, `list_filter`, etc.
+  </Step>
+</Steps>
+
+### Step 3: Run Migrations
+
+Create and apply database migrations for your model:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+### Step 4: Access the Admin
+
+Start your development server and access the admin:
+
+```bash
+python manage.py runserver
+```
+
+Navigate to `http://127.0.0.1:8000/admin/` and log in. You'll see your Post model with Unfold's modern interface!
+
+<Check>
+  Congratulations! You've created your first Unfold admin interface.
+</Check>
+
+## Enhancing Your Admin
+
+### Custom Display Methods
+
+Add custom display methods with Unfold's `@display` decorator:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
+from .models import Post
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    list_display = ["title", "display_status", "author", "created_at"]
+    list_filter = ["status", "created_at"]
+    search_fields = ["title", "content"]
+    
+    @display(description="Status", label=True)
+    def display_status(self, obj):
+        return obj.status
+    
+    @display(description="Published Date", ordering="created_at")
+    def display_created(self, obj):
+        return obj.created_at.strftime("%B %d, %Y")
+```
+
+<Note>
+  The `@display` decorator from `unfold.decorators` provides enhanced functionality including labels, badges, and custom HTML rendering.
+</Note>
+
+### Adding Inlines
+
+Let's add inline editing for related models. First, create a Comment model:
+
+```python models.py
+class Comment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    author = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    content = models.TextField(_("Content"))
+    created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
+    
+    class Meta:
+        verbose_name = _("Comment")
+        verbose_name_plural = _("Comments")
+        ordering = ["-created_at"]
+    
+    def __str__(self):
+        return f"Comment by {self.author} on {self.post}"
+```
+
+Then add an inline to your admin:
+
+```python admin.py
+from unfold.admin import ModelAdmin, StackedInline, TabularInline
+
+class CommentInline(TabularInline):
+    model = Comment
+    extra = 1
+    fields = ["author", "content", "created_at"]
+    readonly_fields = ["created_at"]
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    list_display = ["title", "author", "status", "created_at"]
+    list_filter = ["status", "created_at"]
+    search_fields = ["title", "content"]
+    inlines = [CommentInline]
+```
+
+<CodeGroup>
+```python TabularInline
+from unfold.admin import TabularInline
+
+class CommentInline(TabularInline):
+    model = Comment
+    extra = 1
+```
+
+```python StackedInline
+from unfold.admin import StackedInline
+
+class CommentInline(StackedInline):
+    model = Comment
+    extra = 1
+```
+</CodeGroup>
+
+### Advanced Features
+
+#### Compressed Fields
+
+For forms with many fields, enable compressed mode:
+
+```python admin.py
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    compressed_fields = True  # Enable compressed field display
+    list_display = ["title", "status", "created_at"]
+```
+
+#### Custom Actions
+
+Add custom actions with Unfold's `@action` decorator:
+
+```python admin.py
+from django.contrib import messages
+from unfold.decorators import action
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    list_display = ["title", "status", "created_at"]
+    actions = ["make_published", "make_draft"]
+    
+    @action(description="Mark selected posts as published")
+    def make_published(self, request, queryset):
+        updated = queryset.update(status=Post.StatusChoices.PUBLISHED)
+        self.message_user(
+            request,
+            f"{updated} post(s) marked as published.",
+            messages.SUCCESS,
+        )
+    
+    @action(description="Mark selected posts as draft")
+    def make_draft(self, request, queryset):
+        updated = queryset.update(status=Post.StatusChoices.DRAFT)
+        self.message_user(
+            request,
+            f"{updated} post(s) marked as draft.",
+            messages.SUCCESS,
+        )
+```
+
+#### Advanced Filters
+
+Use Unfold's enhanced filters for better user experience:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import (
+    ChoicesDropdownFilter,
+    RangeDateFilter,
+    RelatedDropdownFilter,
+)
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    list_display = ["title", "author", "status", "created_at"]
+    list_filter = [
+        ("status", ChoicesDropdownFilter),
+        ("created_at", RangeDateFilter),
+        ("author", RelatedDropdownFilter),
+    ]
+    search_fields = ["title", "content"]
+```
+
+<Warning>
+  To use advanced filters, ensure you've added `unfold.contrib.filters` to your `INSTALLED_APPS` in settings.py.
+</Warning>
+
+## Real-World Example
+
+Here's a complete example from Unfold's test suite showing advanced features:
+
+```python admin.py
+from django.contrib import admin
+from django.utils.html import format_html
+from unfold.admin import ModelAdmin, StackedInline
+from unfold.contrib.filters.admin import (
+    ChoicesDropdownFilter,
+    RangeDateFilter,
+)
+from unfold.decorators import action, display
+
+class CommentInline(StackedInline):
+    model = Comment
+    extra = 0
+    fields = ["author", "content", "created_at"]
+    readonly_fields = ["created_at"]
+    collapsible = True  # Make inline collapsible
+
+@admin.register(Post)
+class PostAdmin(ModelAdmin):
+    # Display configuration
+    list_display = [
+        "title",
+        "display_status",
+        "author",
+        "display_comments_count",
+        "created_at",
+    ]
+    list_filter = [
+        ("status", ChoicesDropdownFilter),
+        ("created_at", RangeDateFilter),
+        "author",
+    ]
+    search_fields = ["title", "content"]
+    prepopulated_fields = {"slug": ["title"]}
+    
+    # Form configuration
+    fieldsets = (
+        (None, {
+            "fields": ("title", "slug", "content"),
+        }),
+        ("Publication", {
+            "fields": ("status", "author"),
+            "classes": ["tab"],  # Display as tab
+        }),
+    )
+    
+    # Inlines
+    inlines = [CommentInline]
+    
+    # Custom display methods
+    @display(description="Status", label=True)
+    def display_status(self, obj):
+        return obj.status
+    
+    @display(description="Comments")
+    def display_comments_count(self, obj):
+        count = obj.comments.count()
+        return format_html(
+            '<span style="font-weight: bold;">{}</span>',
+            count
+        )
+    
+    # Custom actions
+    @action(description="Publish selected posts")
+    def make_published(self, request, queryset):
+        queryset.update(status=Post.StatusChoices.PUBLISHED)
+        self.message_user(request, "Posts published successfully.")
+```
+
+## Available Options
+
+Unfold's `ModelAdmin` supports all standard Django admin options plus additional features:
+
+<AccordionGroup>
+  <Accordion title="Display Options">
+    - `list_display` - Fields to show in list view
+    - `list_filter` - Filters in sidebar
+    - `search_fields` - Searchable fields
+    - `list_horizontal_scrollbar_top` - Add scrollbar at top
+    - `list_fullwidth` - Full-width list view
+    - `list_disable_select_all` - Disable select all checkbox
+  </Accordion>
+
+  <Accordion title="Form Options">
+    - `fieldsets` - Organize fields into sections
+    - `add_fieldsets` - Different fieldsets for add form
+    - `compressed_fields` - Compact field display
+    - `readonly_fields` - Fields that can't be edited
+    - `readonly_preprocess_fields` - Preprocess readonly field values
+    - `warn_unsaved_form` - Warning on unsaved changes
+  </Accordion>
+
+  <Accordion title="Inline Options">
+    - `inlines` - Related models to edit inline
+    - `per_page` - Pagination for inlines
+    - `collapsible` - Make inlines collapsible
+    - `ordering_field` - Field for drag-and-drop ordering
+    - `hide_ordering_field` - Hide ordering field column
+  </Accordion>
+
+  <Accordion title="Action Options">
+    - `actions` - Custom bulk actions
+    - `action_form` - Custom action form
+    - Custom detail/row/list actions via decorators
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Explore Features" icon="compass" href="https://unfoldadmin.com/docs">
+    Dive deep into all available features and customization options
+  </Card>
+  
+  <Card title="Live Demo" icon="display" href="https://unfoldadmin.com">
+    See all features in action with the interactive demo
+  </Card>
+  
+  <Card title="Example Project" icon="github" href="https://github.com/unfoldadmin/formula">
+    Clone a complete example implementation
+  </Card>
+  
+  <Card title="Join Community" icon="discord" href="https://discord.gg/9sQj9MEbNz">
+    Get help and share your experience on Discord
+  </Card>
+</CardGroup>
+
+<Check>
+  You're now ready to build powerful admin interfaces with Django Unfold!
+</Check>

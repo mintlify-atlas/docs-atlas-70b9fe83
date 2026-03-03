@@ -1,122 +1,196 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Django Unfold",
+  "theme": "maple",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#a855f7",
+    "light": "#f3e8ff",
+    "dark": "#581c87"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/unfoldadmin/django-unfold"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/unfoldadmin/django-unfold"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/modeladmin",
+              "concepts/customization",
+              "concepts/theming"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Components",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "components/overview",
+              "components/card",
+              "components/button",
+              "components/chart",
+              "components/table",
+              "components/progress",
+              "components/tracker",
+              "components/cohort",
+              "components/layer"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Filters",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "filters/overview",
+              "filters/dropdown",
+              "filters/autocomplete",
+              "filters/numeric",
+              "filters/datetime",
+              "filters/text",
+              "filters/checkbox-radio"
+            ]
+          },
+          {
+            "group": "Forms & Fields",
+            "pages": [
+              "forms/overview",
+              "forms/crispy-forms",
+              "forms/conditional-fields",
+              "forms/fields",
+              "forms/widgets"
+            ]
+          },
+          {
+            "group": "Inlines & Tabs",
+            "pages": [
+              "inlines/overview",
+              "inlines/inline-tabs",
+              "inlines/fieldset-tabs",
+              "inlines/model-tabs",
+              "inlines/sortable",
+              "inlines/paginated",
+              "inlines/nonrelated"
+            ]
+          },
+          {
+            "group": "Actions",
+            "pages": [
+              "actions/overview",
+              "actions/list-actions",
+              "actions/detail-actions",
+              "actions/row-actions",
+              "actions/submit-line-actions"
+            ]
+          },
+          {
+            "group": "Advanced Features",
+            "pages": [
+              "advanced/dashboard",
+              "advanced/datasets",
+              "advanced/command-palette",
+              "advanced/sidebar-navigation",
+              "advanced/custom-pages",
+              "advanced/environment-label",
+              "advanced/language-switcher"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/settings",
+              "configuration/colors",
+              "configuration/styles-scripts",
+              "configuration/favicons",
+              "configuration/authentication"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Integrations",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Third-Party Packages",
             "pages": [
-              "api-reference/introduction"
+              "integrations/overview",
+              "integrations/django-guardian",
+              "integrations/django-import-export",
+              "integrations/django-simple-history",
+              "integrations/django-constance",
+              "integrations/django-celery-beat",
+              "integrations/django-modeltranslation",
+              "integrations/django-money",
+              "integrations/django-location-field",
+              "integrations/djangoql",
+              "integrations/django-json-widget"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/modeladmin",
+              "api/unfold-admin-site",
+              "api/inlines"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Decorators",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/decorators/action",
+              "api/decorators/display"
+            ]
+          },
+          {
+            "group": "Widgets & Fields",
+            "pages": [
+              "api/widgets",
+              "api/fields"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "api/component-classes"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Additional Resources",
+            "pages": [
+              "resources/changelog",
+              "resources/migration-guide",
+              "resources/troubleshooting",
+              "resources/contributing",
+              "resources/faq"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,254 @@
+---
+title: Inline Classes
+description: Complete API reference for Unfold inline admin classes
+---
+
+## Overview
+
+Unfold provides enhanced inline admin classes with pagination support and additional customization options.
+
+## Base Mixin
+
+### BaseInlineMixin
+
+```python
+class BaseInlineMixin
+```
+
+Located in `unfold/admin.py:237`
+
+Base mixin providing common functionality for all Unfold inline classes.
+
+#### Attributes
+
+<ParamField path="formfield_overrides" type="dict" default="FORMFIELD_OVERRIDES_INLINE">
+  Dictionary of field type to widget mappings for form field overrides.
+</ParamField>
+
+<ParamField path="readonly_preprocess_fields" type="dict[str, Callable | str]" default="{}">
+  Dictionary mapping field names to preprocessing functions for readonly fields.
+</ParamField>
+
+<ParamField path="ordering_field" type="str | None" default="None">
+  Field name to use for custom ordering functionality.
+</ParamField>
+
+<ParamField path="per_page" type="int | None" default="None">
+  Number of inline forms to display per page. Enables pagination when set.
+</ParamField>
+
+<ParamField path="hide_ordering_field" type="bool" default="False">
+  Whether to hide the ordering field from display.
+</ParamField>
+
+<ParamField path="collapsible" type="bool" default="False">
+  Whether the inline should be collapsible.
+</ParamField>
+
+## Inline Classes
+
+### TabularInline
+
+```python
+from unfold.admin import TabularInline
+
+class TabularInline(
+    BaseInlineMixin,
+    BaseModelAdminMixin,
+    BaseTabularInline
+)
+```
+
+Located in `unfold/admin.py:246`
+
+Tabular inline with Unfold styling and pagination support.
+
+#### Attributes
+
+<ParamField path="formset" type="Type" default="PaginationInlineFormSet">
+  The formset class used for this inline.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
+from .models import Book, Chapter
+
+class ChapterInline(TabularInline):
+    model = Chapter
+    extra = 1
+    per_page = 10  # Enable pagination
+    ordering_field = "order"
+    fields = ["title", "page_count", "order"]
+
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    inlines = [ChapterInline]
+```
+
+### StackedInline
+
+```python
+from unfold.admin import StackedInline
+
+class StackedInline(
+    BaseInlineMixin,
+    BaseModelAdminMixin,
+    BaseStackedInline
+)
+```
+
+Located in `unfold/admin.py:250`
+
+Stacked inline with Unfold styling and pagination support.
+
+#### Attributes
+
+<ParamField path="formset" type="Type" default="PaginationInlineFormSet">
+  The formset class used for this inline.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin, StackedInline
+from .models import Author, Biography
+
+class BiographyInline(StackedInline):
+    model = Biography
+    extra = 0
+    collapsible = True
+    fields = ["birth_date", "birth_place", "bio"]
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BiographyInline]
+```
+
+### GenericStackedInline
+
+```python
+from unfold.admin import GenericStackedInline
+
+class GenericStackedInline(
+    BaseInlineMixin,
+    BaseModelAdminMixin,
+    BaseGenericStackedInline
+)
+```
+
+Located in `unfold/admin.py:254`
+
+Generic stacked inline for use with generic foreign keys.
+
+#### Attributes
+
+<ParamField path="formset" type="Type" default="PaginationGenericInlineFormSet">
+  The formset class used for this inline.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django.contrib import admin
+from django.contrib.contenttypes.models import ContentType
+from unfold.admin import ModelAdmin, GenericStackedInline
+from .models import Article, Comment
+
+class CommentInline(GenericStackedInline):
+    model = Comment
+    ct_field = "content_type"
+    ct_fk_field = "object_id"
+    extra = 1
+    per_page = 5
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    inlines = [CommentInline]
+```
+
+### GenericTabularInline
+
+```python
+from unfold.admin import GenericTabularInline
+
+class GenericTabularInline(
+    BaseInlineMixin,
+    BaseModelAdminMixin,
+    BaseGenericTabularInline
+)
+```
+
+Located in `unfold/admin.py:260`
+
+Generic tabular inline for use with generic foreign keys.
+
+#### Attributes
+
+<ParamField path="formset" type="Type" default="PaginationGenericInlineFormSet">
+  The formset class used for this inline.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin, GenericTabularInline
+from .models import Product, Tag
+
+class TagInline(GenericTabularInline):
+    model = Tag
+    ct_field = "content_type"
+    ct_fk_field = "object_id"
+    extra = 1
+    fields = ["name", "color"]
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    inlines = [TagInline]
+```
+
+## Pagination Support
+
+All inline classes support pagination through the `per_page` attribute:
+
+```python
+class MyInline(TabularInline):
+    model = MyModel
+    per_page = 10  # Show 10 items per page
+```
+
+When `per_page` is set, the inline will:
+- Display a pagination interface
+- Only load the specified number of forms at once
+- Improve performance for inlines with many related objects
+
+## Ordering Support
+
+Use the `ordering_field` attribute to enable drag-and-drop ordering:
+
+```python
+class MyInline(TabularInline):
+    model = MyModel
+    ordering_field = "order"  # Field that stores the order
+    hide_ordering_field = True  # Hide the order field from display
+```
+
+## Readonly Field Preprocessing
+
+Preprocess readonly fields before display:
+
+```python
+def format_date(value):
+    return value.strftime("%B %d, %Y")
+
+class MyInline(TabularInline):
+    model = MyModel
+    readonly_fields = ["created_at"]
+    readonly_preprocess_fields = {
+        "created_at": format_date,
+    }
+```

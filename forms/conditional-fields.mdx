@@ -1,0 +1,501 @@
+---
+title: Conditional Fields
+description: Show or hide form fields dynamically based on the values of other fields
+icon: filter
+---
+
+## Introduction
+
+Conditional fields allow you to show or hide form fields dynamically based on the values of other fields. This improves the user experience by displaying only relevant fields and reducing form complexity.
+
+<Info>
+Conditional fields are implemented using Alpine.js, which is included with Django Unfold.
+</Info>
+
+## Basic Usage
+
+Use the `x-show` directive to conditionally display fields:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    fieldsets = (
+        (None, {
+            'fields': (
+                'name',
+                'product_type',
+                'digital_download_url',
+                'weight',
+                'dimensions',
+            )
+        }),
+    )
+    
+    class Media:
+        js = ('admin/js/conditional_fields.js',)
+```
+
+Create the JavaScript file:
+
+```javascript admin/js/conditional_fields.js
+// Show digital_download_url only when product_type is 'digital'
+document.addEventListener('alpine:init', () => {
+    Alpine.data('conditionalFields', () => ({
+        productType: '',
+        
+        init() {
+            this.productType = document.querySelector('#id_product_type').value;
+            
+            this.$watch('productType', value => {
+                this.toggleFields(value);
+            });
+        },
+        
+        toggleFields(value) {
+            const digitalField = document.querySelector('[data-field="digital_download_url"]');
+            const physicalFields = [
+                document.querySelector('[data-field="weight"]'),
+                document.querySelector('[data-field="dimensions"]')
+            ];
+            
+            if (value === 'digital') {
+                digitalField.style.display = 'block';
+                physicalFields.forEach(field => field.style.display = 'none');
+            } else {
+                digitalField.style.display = 'none';
+                physicalFields.forEach(field => field.style.display = 'block');
+            }
+        }
+    }));
+});
+```
+
+## Using Data Attributes
+
+A cleaner approach using data attributes:
+
+```python admin.py
+from django.contrib import admin
+from django import forms
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminSelectWidget, UnfoldAdminTextInputWidget
+
+class ProductForm(forms.ModelForm):
+    PRODUCT_TYPE_CHOICES = [
+        ('physical', 'Physical Product'),
+        ('digital', 'Digital Product'),
+        ('service', 'Service'),
+    ]
+    
+    product_type = forms.ChoiceField(
+        choices=PRODUCT_TYPE_CHOICES,
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-model': 'productType',
+        })
+    )
+    
+    digital_download_url = forms.URLField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "productType === 'digital'",
+        })
+    )
+    
+    weight = forms.DecimalField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "productType === 'physical'",
+        })
+    )
+    
+    dimensions = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "productType === 'physical'",
+        })
+    )
+    
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    form = ProductForm
+```
+
+## Boolean Field Conditions
+
+Show/hide fields based on checkbox values:
+
+```python admin.py
+from django import forms
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldBooleanWidget, UnfoldAdminTextInputWidget
+
+class SettingsForm(forms.ModelForm):
+    enable_notifications = forms.BooleanField(
+        required=False,
+        widget=UnfoldBooleanWidget(attrs={
+            'x-model': 'notificationsEnabled',
+        })
+    )
+    
+    notification_email = forms.EmailField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': 'notificationsEnabled',
+            'x-transition': True,
+        })
+    )
+    
+    notification_frequency = forms.ChoiceField(
+        required=False,
+        choices=[('daily', 'Daily'), ('weekly', 'Weekly')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-show': 'notificationsEnabled',
+            'x-transition': True,
+        })
+    )
+    
+    class Meta:
+        model = Settings
+        fields = '__all__'
+```
+
+## Multiple Conditions
+
+Show fields based on multiple conditions:
+
+```python admin.py
+from django import forms
+from unfold.admin import ModelAdmin
+
+class OrderForm(forms.ModelForm):
+    payment_method = forms.ChoiceField(
+        choices=[('card', 'Credit Card'), ('bank', 'Bank Transfer'), ('cash', 'Cash')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-model': 'paymentMethod',
+        })
+    )
+    
+    requires_invoice = forms.BooleanField(
+        required=False,
+        widget=UnfoldBooleanWidget(attrs={
+            'x-model': 'requiresInvoice',
+        })
+    )
+    
+    card_number = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "paymentMethod === 'card'",
+        })
+    )
+    
+    bank_account = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "paymentMethod === 'bank'",
+        })
+    )
+    
+    invoice_details = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextareaWidget(attrs={
+            'x-show': "requiresInvoice && (paymentMethod === 'card' || paymentMethod === 'bank')",
+        })
+    )
+    
+    class Meta:
+        model = Order
+        fields = '__all__'
+```
+
+## Fieldset Conditions
+
+Show/hide entire fieldsets conditionally:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Event)
+class EventAdmin(ModelAdmin):
+    fieldsets = (
+        (None, {
+            'fields': ('name', 'event_type')
+        }),
+        ('Online Event Details', {
+            'fields': ('meeting_url', 'platform'),
+            'classes': ('conditional-fieldset',),
+            'description': 'x-show="eventType === \'online\'"',
+        }),
+        ('In-Person Event Details', {
+            'fields': ('venue', 'address', 'capacity'),
+            'classes': ('conditional-fieldset',),
+            'description': 'x-show="eventType === \'in-person\'"',
+        }),
+    )
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields['event_type'].widget.attrs.update({
+            'x-model': 'eventType'
+        })
+        return form
+```
+
+## Dynamic Field Requirements
+
+Make fields required/optional based on conditions:
+
+```python admin.py
+from django import forms
+from unfold.admin import ModelAdmin
+
+class ShippingForm(forms.ModelForm):
+    shipping_method = forms.ChoiceField(
+        choices=[('standard', 'Standard'), ('express', 'Express'), ('pickup', 'Store Pickup')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-model': 'shippingMethod',
+        })
+    )
+    
+    shipping_address = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextareaWidget(attrs={
+            'x-show': "shippingMethod !== 'pickup'",
+            'x-bind:required': "shippingMethod !== 'pickup'",
+        })
+    )
+    
+    store_location = forms.ChoiceField(
+        required=False,
+        choices=[('store1', 'Store 1'), ('store2', 'Store 2')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-show': "shippingMethod === 'pickup'",
+            'x-bind:required': "shippingMethod === 'pickup'",
+        })
+    )
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        shipping_method = cleaned_data.get('shipping_method')
+        
+        if shipping_method == 'pickup' and not cleaned_data.get('store_location'):
+            self.add_error('store_location', 'Store location is required for pickup.')
+        
+        if shipping_method != 'pickup' and not cleaned_data.get('shipping_address'):
+            self.add_error('shipping_address', 'Shipping address is required.')
+        
+        return cleaned_data
+    
+    class Meta:
+        model = Order
+        fields = '__all__'
+```
+
+## Transitions and Animations
+
+Add smooth transitions when showing/hiding fields:
+
+```python admin.py
+from django import forms
+from unfold.widgets import UnfoldAdminTextInputWidget
+
+class AnimatedForm(forms.ModelForm):
+    special_field = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': 'showSpecial',
+            'x-transition:enter': 'transition ease-out duration-300',
+            'x-transition:enter-start': 'opacity-0 transform scale-95',
+            'x-transition:enter-end': 'opacity-100 transform scale-100',
+            'x-transition:leave': 'transition ease-in duration-200',
+            'x-transition:leave-start': 'opacity-100 transform scale-100',
+            'x-transition:leave-end': 'opacity-0 transform scale-95',
+        })
+    )
+```
+
+## Inline Formset Conditions
+
+Conditional fields in inline formsets:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline
+
+class VariantInlineForm(forms.ModelForm):
+    has_discount = forms.BooleanField(
+        required=False,
+        widget=UnfoldBooleanWidget(attrs={
+            'x-model': 'hasDiscount',
+        })
+    )
+    
+    discount_percentage = forms.DecimalField(
+        required=False,
+        widget=UnfoldAdminDecimalFieldWidget(attrs={
+            'x-show': 'hasDiscount',
+        })
+    )
+    
+    class Meta:
+        model = ProductVariant
+        fields = '__all__'
+
+class VariantInline(TabularInline):
+    model = ProductVariant
+    form = VariantInlineForm
+    extra = 1
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    inlines = [VariantInline]
+```
+
+## Complex Conditional Logic
+
+Implement complex conditional logic:
+
+```python admin.py
+from django import forms
+from unfold.admin import ModelAdmin
+
+class AdvancedForm(forms.ModelForm):
+    category = forms.ChoiceField(
+        choices=[('electronics', 'Electronics'), ('clothing', 'Clothing'), ('books', 'Books')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-model': 'category',
+        })
+    )
+    
+    subcategory = forms.ChoiceField(
+        required=False,
+        choices=[],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-model': 'subcategory',
+            'x-show': "category !== ''",
+        })
+    )
+    
+    # Electronics specific fields
+    warranty_period = forms.IntegerField(
+        required=False,
+        widget=UnfoldAdminIntegerFieldWidget(attrs={
+            'x-show': "category === 'electronics'",
+        })
+    )
+    
+    # Clothing specific fields
+    size = forms.ChoiceField(
+        required=False,
+        choices=[('S', 'Small'), ('M', 'Medium'), ('L', 'Large')],
+        widget=UnfoldAdminSelectWidget(attrs={
+            'x-show': "category === 'clothing'",
+        })
+    )
+    
+    color = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "category === 'clothing'",
+        })
+    )
+    
+    # Books specific fields
+    author = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "category === 'books'",
+        })
+    )
+    
+    isbn = forms.CharField(
+        required=False,
+        widget=UnfoldAdminTextInputWidget(attrs={
+            'x-show': "category === 'books'",
+        })
+    )
+    
+    class Meta:
+        model = Product
+        fields = '__all__'
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Conditions Simple">
+    Use clear, simple conditions that are easy to understand and maintain.
+    
+    ```python
+    # Good
+    'x-show': "type === 'digital'"
+    
+    # Avoid overly complex
+    'x-show': "(type === 'digital' && status === 'active') || (type === 'physical' && warehouse !== '')"
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle Validation">
+    Always implement proper form validation for conditional fields:
+    
+    ```python
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('type') == 'digital':
+            if not cleaned_data.get('download_url'):
+                raise forms.ValidationError('Download URL is required for digital products')
+        return cleaned_data
+    ```
+  </Accordion>
+  
+  <Accordion title="Provide Clear Labels">
+    Use descriptive labels and help text for conditional fields:
+    
+    ```python
+    download_url = forms.URLField(
+        label='Digital Download URL',
+        help_text='Required for digital products only',
+        required=False,
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Test Edge Cases">
+    Test all combinations of conditions to ensure proper behavior:
+    - Initial page load
+    - Changing between different options
+    - Form validation with conditional required fields
+    - Saving and editing existing objects
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<Warning>
+Common issues and solutions:
+
+1. **Fields not hiding/showing**: Ensure Alpine.js is loaded and x-model bindings are correct
+2. **Validation errors**: Implement custom clean() methods for conditional required fields
+3. **Initial state**: Set proper initial values in the form's __init__ method
+4. **Inline formsets**: Each inline form needs its own Alpine.js data scope
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Widgets" icon="palette" href="/forms/widgets">
+    Explore all available form widgets
+  </Card>
+  <Card title="Custom Fields" icon="input-text" href="/forms/fields">
+    Learn about enhanced form fields
+  </Card>
+</CardGroup>

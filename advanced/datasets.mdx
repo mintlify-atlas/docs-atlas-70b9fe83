@@ -1,0 +1,417 @@
+---
+title: Datasets
+description: Display Django admin changelists within changeform pages using Datasets. Learn how to show related data alongside model forms with list display, search, sorting, and pagination features.
+---
+
+# Datasets
+
+Datasets allow you to embed Django admin changelists directly within changeform pages. This powerful feature enables you to display related data alongside a model's edit form, providing a comprehensive view of associated records without leaving the page.
+
+## Overview
+
+A Dataset is essentially a specialized `ModelAdmin` that:
+
+- Is **not** registered with the standard `@admin.register` decorator
+- Displays as a changelist table within another model's changeform page
+- Can optionally appear in a tab interface
+- Supports core changelist functionality (list display, search, sorting, pagination)
+- Requires explicit permission handling in the queryset
+
+<Note>
+Datasets support most changelist features but do not support `list_filter`. All filtering must be handled programmatically in the `get_queryset()` method.
+</Note>
+
+## Basic Implementation
+
+<Steps>
+  <Step title="Create the Dataset ModelAdmin">
+    Define a `ModelAdmin` class with your desired changelist configuration.
+
+    ```python admin.py
+    from unfold.admin import ModelAdmin
+    from .models import Order
+
+    class OrderDatasetAdmin(ModelAdmin):
+        search_fields = ["order_number", "customer__name"]
+        list_display = ["order_number", "customer", "status", "total_amount", "created_at"]
+        list_display_links = ["order_number"]
+        list_per_page = 20  # Default: 10
+        
+        def get_queryset(self, request):
+            # Access the parent object from extra_context
+            customer_id = self.extra_context.get("object")
+            
+            # Return no results on the create page
+            if not customer_id:
+                return super().get_queryset(request).none()
+            
+            # Filter orders by the current customer
+            return super().get_queryset(request).filter(
+                customer_id=customer_id
+            ).select_related('customer')
+    ```
+  </Step>
+
+  <Step title="Create the Dataset Class">
+    Create a dataset class that inherits from `BaseDataset` and references your ModelAdmin.
+
+    ```python admin.py
+    from unfold.datasets import BaseDataset
+
+    class CustomerOrdersDataset(BaseDataset):
+        model = Order
+        model_admin = OrderDatasetAdmin
+        tab = False  # Set to True to display in a tab
+    ```
+  </Step>
+
+  <Step title="Register the Dataset">
+    Add the dataset to the parent model's `change_form_datasets`.
+
+    ```python admin.py
+    from django.contrib import admin
+    from .models import Customer
+
+    @admin.register(Customer)
+    class CustomerAdmin(ModelAdmin):
+        change_form_datasets = [
+            CustomerOrdersDataset,
+        ]
+        
+        fieldsets = (
+            (None, {
+                'fields': ('name', 'email', 'phone')
+            }),
+        )
+    ```
+  </Step>
+</Steps>
+
+## Dataset Configuration Options
+
+### ModelAdmin Attributes
+
+Datasets support the following `ModelAdmin` attributes:
+
+<ResponseField name="search_fields" type="list">
+  Fields to include in the search functionality
+</ResponseField>
+
+<ResponseField name="list_display" type="list">
+  Fields to display as columns in the table
+</ResponseField>
+
+<ResponseField name="list_display_links" type="list">
+  Fields that should be clickable links to the change form
+</ResponseField>
+
+<ResponseField name="list_per_page" type="int" default="10">
+  Number of items to display per page
+</ResponseField>
+
+<ResponseField name="actions" type="list">
+  Custom actions available for the dataset
+</ResponseField>
+
+### BaseDataset Attributes
+
+<ResponseField name="model" type="Model" required>
+  The Django model class for the dataset
+</ResponseField>
+
+<ResponseField name="model_admin" type="ModelAdmin" required>
+  The ModelAdmin class defining the dataset's behavior
+</ResponseField>
+
+<ResponseField name="tab" type="bool" default="False">
+  Whether to display the dataset in a tab interface
+</ResponseField>
+
+## Advanced Examples
+
+### Dataset with Actions
+
+Add custom actions to your dataset for bulk operations:
+
+```python admin.py
+from django.contrib import messages
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+
+class OrderDatasetAdmin(ModelAdmin):
+    search_fields = ["order_number"]
+    list_display = ["order_number", "status", "total_amount"]
+    actions = ["mark_as_shipped", "cancel_orders"]
+    
+    @action(description="Mark selected orders as shipped")
+    def mark_as_shipped(self, request, queryset):
+        updated = queryset.update(status='shipped')
+        messages.success(request, f"{updated} orders marked as shipped.")
+    
+    @action(description="Cancel selected orders")
+    def cancel_orders(self, request, queryset):
+        updated = queryset.update(status='cancelled')
+        messages.warning(request, f"{updated} orders cancelled.")
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        
+        if not customer_id:
+            return super().get_queryset(request).none()
+        
+        return super().get_queryset(request).filter(customer_id=customer_id)
+```
+
+### Multiple Datasets with Tabs
+
+Display multiple related datasets in separate tabs:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+from unfold.datasets import BaseDataset
+from .models import Customer, Order, Invoice, Payment
+
+# Order Dataset
+class OrderDatasetAdmin(ModelAdmin):
+    list_display = ["order_number", "status", "total_amount", "created_at"]
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        if not customer_id:
+            return super().get_queryset(request).none()
+        return super().get_queryset(request).filter(customer_id=customer_id)
+
+class CustomerOrdersDataset(BaseDataset):
+    model = Order
+    model_admin = OrderDatasetAdmin
+    tab = True  # Display in tab
+
+# Invoice Dataset
+class InvoiceDatasetAdmin(ModelAdmin):
+    list_display = ["invoice_number", "amount", "due_date", "status"]
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        if not customer_id:
+            return super().get_queryset(request).none()
+        return super().get_queryset(request).filter(customer_id=customer_id)
+
+class CustomerInvoicesDataset(BaseDataset):
+    model = Invoice
+    model_admin = InvoiceDatasetAdmin
+    tab = True  # Display in tab
+
+# Payment Dataset
+class PaymentDatasetAdmin(ModelAdmin):
+    list_display = ["payment_id", "amount", "method", "date"]
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        if not customer_id:
+            return super().get_queryset(request).none()
+        return super().get_queryset(request).filter(customer_id=customer_id)
+
+class CustomerPaymentsDataset(BaseDataset):
+    model = Payment
+    model_admin = PaymentDatasetAdmin
+    tab = True  # Display in tab
+
+# Register all datasets
+@admin.register(Customer)
+class CustomerAdmin(ModelAdmin):
+    change_form_datasets = [
+        CustomerOrdersDataset,
+        CustomerInvoicesDataset,
+        CustomerPaymentsDataset,
+    ]
+```
+
+### Dataset with Custom Display Methods
+
+Use the `@display` decorator to customize field display:
+
+```python admin.py
+from django.utils.html import format_html
+from unfold.admin import ModelAdmin
+from unfold.decorators import display
+
+class OrderDatasetAdmin(ModelAdmin):
+    list_display = [
+        "order_number", 
+        "status_badge", 
+        "formatted_total", 
+        "days_since_order"
+    ]
+    
+    @display(description="Status")
+    def status_badge(self, obj):
+        colors = {
+            'pending': 'warning',
+            'shipped': 'info',
+            'delivered': 'success',
+            'cancelled': 'danger',
+        }
+        color = colors.get(obj.status, 'secondary')
+        return format_html(
+            '<span class="badge badge-{}">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    
+    @display(description="Total", ordering="total_amount")
+    def formatted_total(self, obj):
+        return f"${obj.total_amount:,.2f}"
+    
+    @display(description="Days Since Order")
+    def days_since_order(self, obj):
+        from django.utils import timezone
+        delta = timezone.now().date() - obj.created_at.date()
+        return f"{delta.days} days"
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        if not customer_id:
+            return super().get_queryset(request).none()
+        return super().get_queryset(request).filter(customer_id=customer_id)
+```
+
+### Permission-Based Datasets
+
+Filter datasets based on user permissions:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+
+class OrderDatasetAdmin(ModelAdmin):
+    list_display = ["order_number", "status", "total_amount"]
+    
+    def get_queryset(self, request):
+        customer_id = self.extra_context.get("object")
+        
+        if not customer_id:
+            return super().get_queryset(request).none()
+        
+        queryset = super().get_queryset(request).filter(customer_id=customer_id)
+        
+        # Restrict based on user permissions
+        if not request.user.is_superuser:
+            # Regular users only see their assigned orders
+            if hasattr(request.user, 'sales_rep_profile'):
+                queryset = queryset.filter(
+                    sales_rep=request.user.sales_rep_profile
+                )
+            else:
+                # Users without a sales rep profile see nothing
+                queryset = queryset.none()
+        
+        return queryset
+    
+    def has_add_permission(self, request):
+        # Only allow superusers to add orders from the dataset
+        return request.user.is_superuser
+    
+    def has_delete_permission(self, request, obj=None):
+        # Only allow order deletion for managers
+        return request.user.groups.filter(name='Managers').exists()
+```
+
+## Important Considerations
+
+<Warning>
+Always handle the case when `object` is `None` in your `get_queryset()` method. This occurs when creating a new parent object. Return an empty queryset using `.none()` to prevent errors.
+</Warning>
+
+### Permission Handling
+
+Datasets require explicit permission handling:
+
+```python
+def get_queryset(self, request):
+    customer_id = self.extra_context.get("object")
+    
+    # Handle create page (no parent object yet)
+    if not customer_id:
+        return super().get_queryset(request).none()
+    
+    # Base queryset
+    queryset = super().get_queryset(request)
+    
+    # Apply filters
+    queryset = queryset.filter(customer_id=customer_id)
+    
+    # Apply permissions
+    if not request.user.is_superuser:
+        queryset = queryset.filter(created_by=request.user)
+    
+    return queryset
+```
+
+### Performance Optimization
+
+<AccordionGroup>
+  <Accordion title="Use select_related() and prefetch_related()">
+    Optimize database queries by using Django's query optimization methods.
+
+    ```python
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'customer',
+            'product'
+        ).prefetch_related(
+            'items',
+            'payments'
+        )
+    ```
+  </Accordion>
+
+  <Accordion title="Limit list_per_page">
+    Keep the page size reasonable to avoid performance issues.
+
+    ```python
+    class OrderDatasetAdmin(ModelAdmin):
+        list_per_page = 25  # Don't set this too high
+    ```
+  </Accordion>
+
+  <Accordion title="Index Foreign Keys">
+    Ensure foreign key fields used in filtering are properly indexed.
+
+    ```python
+    class Order(models.Model):
+        customer = models.ForeignKey(
+            Customer, 
+            on_delete=models.CASCADE,
+            db_index=True  # Add index for better performance
+        )
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Limitations
+
+<Warning>
+Datasets do not support `list_filter`. All filtering must be implemented programmatically in the `get_queryset()` method.
+</Warning>
+
+Other limitations include:
+
+- No support for `date_hierarchy`
+- Actions must be explicitly defined in the ModelAdmin
+- Limited support for inline editing
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="ModelAdmin Options" icon="sliders" href="/docs/configuration/modeladmin">
+    Learn about available ModelAdmin configuration options
+  </Card>
+  <Card title="Tabs" icon="folder" href="/docs/tabs/changeform">
+    Configure tab navigation for your changeforms
+  </Card>
+  <Card title="Display Decorator" icon="eye" href="/docs/decorators/display">
+    Customize how fields are displayed in your dataset
+  </Card>
+  <Card title="Actions" icon="bolt" href="/docs/actions/introduction">
+    Add custom actions to your datasets
+  </Card>
+</CardGroup>

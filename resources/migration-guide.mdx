@@ -1,0 +1,197 @@
+---
+title: Migration Guide
+description: Step-by-step guide for migrating between Django Unfold versions
+icon: arrow-right-arrow-left
+---
+
+This guide helps you migrate your Django Unfold installation between major and minor versions, highlighting breaking changes and required updates.
+
+## Upgrading Django Unfold
+
+Before upgrading, always:
+
+1. **Review the changelog** for your target version
+2. **Test in a development environment** first
+3. **Back up your database** before applying migrations
+4. **Review custom templates** if you've overridden any Unfold templates
+
+## From v0.81.x to v0.82.x
+
+<Warning>
+**Python 3.10 Support Dropped**: Django Unfold v0.82.0 and later require Python 3.11 or higher.
+</Warning>
+
+### Required Changes
+
+1. **Upgrade Python version**:
+   ```bash
+   # Ensure you're running Python 3.11 or higher
+   python --version
+   ```
+
+2. **Update package**:
+   ```bash
+   pip install --upgrade django-unfold
+   ```
+
+3. **Test your admin interface** for any breaking changes in custom templates or widgets
+
+### New Features
+
+- **UnfoldAdminRelatedFieldWrapperWidget**: Enhanced widget for related field rendering
+- Improved fieldset collapse functionality with better icon placement
+
+## From v0.80.x to v0.81.x
+
+### Tailwind 4.2 Upgrade
+
+This version includes Tailwind CSS 4.2. If you've customized Tailwind:
+
+1. **Review custom Tailwind configurations** in your project
+2. **Check for any deprecated Tailwind classes** in your templates
+3. **Rebuild custom styles** if you're using Unfold's Tailwind customization
+
+### Update Steps
+
+```bash
+pip install --upgrade django-unfold
+python manage.py collectstatic --noinput
+```
+
+## From v0.7x.x to v0.80.x
+
+### Breaking Changes
+
+<Warning>
+Several widget naming conventions have changed. If you're using custom widgets, review the changes in PR [#1867](https://github.com/unfoldadmin/django-unfold/pull/1867).
+</Warning>
+
+### Update Steps
+
+1. **Update widget imports** if you're using custom widgets:
+   ```python
+   # Old (before v0.80.0)
+   from unfold.widgets import UnfoldAdminTextInputWidget
+   
+   # New (v0.80.0+)
+   from unfold.widgets import INPUT_CLASSES
+   ```
+
+2. **Review button styling** - default button variants now include shadows
+
+3. **Check table hover colors** if you've customized table styling
+
+## From v0.6x.x to v0.70.x
+
+### Datasets Feature
+
+Version 0.68.0 introduced the Datasets feature. If upgrading:
+
+1. **Review custom changelist implementations** for compatibility
+2. **Check facet configurations** for Django 4.2 compatibility
+
+### Update Steps
+
+```bash
+pip install --upgrade django-unfold
+python manage.py migrate
+```
+
+## From v0.5x.x to v0.60.x
+
+### Command Palette
+
+Version 0.64.0 introduced the command palette feature:
+
+<Note>
+The command palette is enabled by default. To disable it, add `"SHOW_COMMAND_PALETTE": False` to your `UNFOLD` settings.
+</Note>
+
+### Breaking Changes
+
+- **Tab navigation redesign**: Custom tab styles may need updates
+- **OKLCH color system**: If you're using custom colors, consider migrating to OKLCH
+
+## Common Migration Issues
+
+### Static Files Not Loading
+
+After upgrading, always run:
+
+```bash
+python manage.py collectstatic --noinput --clear
+```
+
+### Custom Templates Breaking
+
+If you've overridden Unfold templates:
+
+1. **Compare your templates** with the new version
+2. **Check template block names** - they may have changed
+3. **Review component usage** in templates
+
+### Missing Icons or Styles
+
+Clear your browser cache and rebuild static files:
+
+```bash
+# Clear Django cache
+python manage.py clear_cache  # If using cache
+
+# Rebuild static files
+python manage.py collectstatic --noinput --clear
+```
+
+## Testing After Migration
+
+After upgrading, test these critical areas:
+
+<Accordion title="Checklist: Post-Migration Testing">
+  - [ ] Login and authentication pages
+  - [ ] Dashboard and custom pages
+  - [ ] Model list views (changelist)
+  - [ ] Model detail views (changeform)
+  - [ ] Inline formsets
+  - [ ] Custom filters and actions
+  - [ ] Third-party integrations (import-export, simple-history, etc.)
+  - [ ] Dark mode switching
+  - [ ] Mobile responsiveness
+  - [ ] Custom dashboard components
+</Accordion>
+
+## Getting Help
+
+If you encounter issues during migration:
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/9sQj9MEbNz">
+    Get help from the community
+  </Card>
+  <Card title="GitHub Issues" icon="github" href="https://github.com/unfoldadmin/django-unfold/issues">
+    Report bugs or request features
+  </Card>
+  <Card title="Professional Support" icon="headset" href="https://unfoldadmin.com/support/">
+    Get expert assistance
+  </Card>
+</CardGroup>
+
+## Rollback Procedure
+
+If you need to rollback:
+
+```bash
+# Rollback to specific version
+pip install django-unfold==0.81.0
+
+# Collect static files
+python manage.py collectstatic --noinput --clear
+
+# Restart your application
+```
+
+<Warning>
+Always backup your database before upgrading or rolling back versions.
+</Warning>

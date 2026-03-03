@@ -1,0 +1,467 @@
+---
+title: Custom Fields
+description: Enhanced form fields with autocomplete and special functionality in Django Unfold
+icon: input-text
+---
+
+## Introduction
+
+Django Unfold provides enhanced form fields that extend Django's standard fields with additional functionality, particularly for autocomplete and admin integration.
+
+## Admin Field Classes
+
+### UnfoldAdminField
+
+Custom wrapper for admin form fields with enhanced label rendering:
+
+```python
+from unfold.fields import UnfoldAdminField
+
+# Automatically used by Unfold's ModelAdmin
+# Handles label rendering with required field indicators
+```
+
+<Info>
+`UnfoldAdminField` is automatically applied to form fields in the admin. It adds:
+- Required field asterisks (*) in red
+- Support for modeltranslation language flags
+- Proper styling for checkboxes vs regular fields
+</Info>
+
+### UnfoldAdminReadonlyField
+
+Enhanced readonly field display with special handling for different field types:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ['created_at', 'thumbnail', 'metadata']
+    
+    # UnfoldAdminReadonlyField automatically:
+    # - Displays images with previews
+    # - Shows file download links
+    # - Formats JSON fields with syntax highlighting
+    # - Renders URLs as clickable links
+    # - Handles ManyToMany relationships
+```
+
+#### Features
+
+<AccordionGroup>
+  <Accordion title="Image Preview">
+    Automatically displays image fields with preview and download link.
+    
+    ```python
+    readonly_fields = ['profile_picture']  # Shows image preview
+    ```
+  </Accordion>
+  
+  <Accordion title="JSON Formatting">
+    Formats JSON fields with syntax highlighting and proper indentation.
+    
+    ```python
+    readonly_fields = ['metadata']  # Shows formatted JSON
+    ```
+  </Accordion>
+  
+  <Accordion title="URL Links">
+    Renders URL fields as clickable links.
+    
+    ```python
+    readonly_fields = ['website']  # Shows as clickable link
+    ```
+  </Accordion>
+  
+  <Accordion title="File Downloads">
+    Provides download links for file fields.
+    
+    ```python
+    readonly_fields = ['document']  # Shows download link
+    ```
+  </Accordion>
+</AccordionGroup>
+
+#### Preprocessing Readonly Fields
+
+You can preprocess readonly field values before display:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+def format_phone(value):
+    """Format phone number for display"""
+    return f"+1 ({value[:3]}) {value[3:6]}-{value[6:]}"
+
+@admin.register(Contact)
+class ContactAdmin(ModelAdmin):
+    readonly_fields = ['phone_number']
+    readonly_preprocess_fields = {
+        'phone_number': format_phone,
+    }
+```
+
+You can also use dotted import paths:
+
+```python
+readonly_preprocess_fields = {
+    'data': 'myapp.utils.format_json',
+}
+```
+
+## Autocomplete Fields
+
+### UnfoldAdminAutocompleteModelChoiceField
+
+Autocomplete field for ForeignKey relationships:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.fields import UnfoldAdminAutocompleteModelChoiceField
+from .models import Article, Author
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    autocomplete_fields = ['author']  # Uses UnfoldAdminAutocompleteModelChoiceField
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ['first_name', 'last_name', 'email']
+```
+
+<Info>
+When you add a field to `autocomplete_fields`, Unfold automatically uses the appropriate autocomplete widget.
+</Info>
+
+### UnfoldAdminMultipleAutocompleteModelChoiceField
+
+Autocomplete field for ManyToMany relationships:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    autocomplete_fields = ['tags']  # ManyToMany field
+
+@admin.register(Tag)
+class TagAdmin(ModelAdmin):
+    search_fields = ['name']
+```
+
+### Custom Autocomplete Implementation
+
+You can manually implement autocomplete fields:
+
+```python forms.py
+from django import forms
+from unfold.fields import (
+    UnfoldAdminAutocompleteModelChoiceField,
+    UnfoldAdminMultipleAutocompleteModelChoiceField,
+)
+from .models import Author, Tag
+
+class ArticleForm(forms.ModelForm):
+    author = UnfoldAdminAutocompleteModelChoiceField(
+        url_path='admin:myapp_author_autocomplete',
+        queryset=Author.objects.all(),
+        required=True,
+    )
+    
+    tags = UnfoldAdminMultipleAutocompleteModelChoiceField(
+        url_path='admin:myapp_tag_autocomplete',
+        queryset=Tag.objects.all(),
+        required=False,
+    )
+    
+    class Meta:
+        model = Article
+        fields = '__all__'
+```
+
+## Field Properties
+
+### Field Type Detection
+
+UnfoldAdminReadonlyField automatically detects field types:
+
+<CodeGroup>
+```python JSON Fields
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    readonly_fields = ['metadata']  # JSONField
+    
+    # Automatically formatted with syntax highlighting
+```
+
+```python Image Fields
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    readonly_fields = ['image']  # ImageField
+    
+    # Shows image preview with download link
+```
+
+```python File Fields
+@admin.register(Document)
+class DocumentAdmin(ModelAdmin):
+    readonly_fields = ['file']  # FileField
+    
+    # Shows filename with download link
+```
+
+```python URL Fields
+@admin.register(Website)
+class WebsiteAdmin(ModelAdmin):
+    readonly_fields = ['url']  # URLField
+    
+    # Renders as clickable link
+```
+</CodeGroup>
+
+## Related Field Handling
+
+### ForeignKey Fields
+
+Automatically creates admin links for related objects:
+
+```python admin.py
+@admin.register(Book)
+class BookAdmin(ModelAdmin):
+    readonly_fields = ['author']  # ForeignKey to Author
+    
+    # Shows: <a href="/admin/app/author/1/change/">John Doe</a>
+```
+
+### ManyToMany Fields
+
+Displays all related objects as comma-separated list:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ['tags']  # ManyToMany to Tag
+    
+    # Shows: Python, Django, Web Development
+```
+
+### OneToOne Fields
+
+Creates admin link to the related object:
+
+```python admin.py
+@admin.register(User)
+class UserAdmin(ModelAdmin):
+    readonly_fields = ['profile']  # OneToOne to Profile
+    
+    # Shows: <a href="/admin/app/profile/1/change/">User Profile</a>
+```
+
+## Custom Field Widgets
+
+You can specify custom widgets for autocomplete fields:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.widgets import (
+    UnfoldAdminAutocompleteModelChoiceFieldWidget,
+    UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget,
+)
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'author':
+            kwargs['widget'] = UnfoldAdminAutocompleteModelChoiceFieldWidget(
+                attrs={'data-ajax--url': '/admin/autocomplete/authors/'}
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+```
+
+## Boolean Display
+
+Readonly boolean fields show visual indicators:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ['is_published']
+    
+    # Shows green checkmark for True, red X for False
+```
+
+For custom methods:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ['status_badge']
+    
+    @admin.display(boolean=True, description='Published')
+    def status_badge(self, obj):
+        return obj.is_published
+```
+
+## Empty Value Display
+
+Customize the display for empty/null values:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ['author']
+    empty_value_display = '-empty-'
+    
+    # Shows '-empty-' instead of default empty display
+```
+
+## Advanced Usage
+
+### Dynamic Field Widgets
+
+Change widgets based on conditions:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.widgets import UnfoldAdminTextInputWidget, UnfoldAdminTextareaWidget
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name == 'content':
+            if request.user.is_superuser:
+                kwargs['widget'] = UnfoldAdminTextareaWidget(attrs={'rows': 20})
+            else:
+                kwargs['widget'] = UnfoldAdminTextareaWidget(attrs={'rows': 10})
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
+```
+
+### Custom Field Rendering
+
+Override field rendering in templates:
+
+```python admin.py
+from django.utils.html import format_html
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    readonly_fields = ['formatted_price']
+    
+    def formatted_price(self, obj):
+        return format_html(
+            '<span style="color: green; font-weight: bold;">${}</span>',
+            obj.price
+        )
+    formatted_price.short_description = 'Price'
+```
+
+## Autocomplete Configuration
+
+### Required Setup
+
+For autocomplete fields to work, ensure the related model admin has search_fields:
+
+```python admin.py
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = [
+        'first_name',
+        'last_name',
+        'email',
+    ]
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    autocomplete_fields = ['author']  # Requires search_fields in AuthorAdmin
+```
+
+### Custom Autocomplete Views
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from django.http import JsonResponse
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    search_fields = ['first_name', 'last_name']
+    
+    def autocomplete_view(self, request):
+        # Custom autocomplete logic
+        term = request.GET.get('term', '')
+        queryset = self.get_search_results(
+            request,
+            self.model.objects.all(),
+            term
+        )[0]
+        
+        results = [
+            {'id': str(obj.pk), 'text': str(obj)}
+            for obj in queryset[:20]
+        ]
+        
+        return JsonResponse({'results': results})
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Autocomplete for Large Datasets">
+    Always use `autocomplete_fields` for ForeignKey/ManyToMany relationships with many objects:
+    
+    ```python
+    autocomplete_fields = ['author', 'tags', 'category']
+    ```
+  </Accordion>
+  
+  <Accordion title="Define Search Fields">
+    Ensure related models have proper `search_fields` defined:
+    
+    ```python
+    search_fields = ['name', 'email', 'username']
+    ```
+  </Accordion>
+  
+  <Accordion title="Preprocess Complex Data">
+    Use `readonly_preprocess_fields` for custom formatting:
+    
+    ```python
+    readonly_preprocess_fields = {
+        'data': 'myapp.utils.format_data',
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Optimize Queries">
+    Use `select_related` and `prefetch_related` for readonly fields:
+    
+    ```python
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('author')
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Custom Widgets" icon="palette" href="/forms/widgets">
+    Explore all available form widgets
+  </Card>
+  <Card title="Conditional Fields" icon="filter" href="/forms/conditional-fields">
+    Implement conditional field visibility
+  </Card>
+</CardGroup>

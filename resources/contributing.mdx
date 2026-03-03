@@ -1,0 +1,359 @@
+---
+title: Contributing
+description: Learn how to contribute to Django Unfold
+icon: code-pull-request
+---
+
+Thank you for your interest in contributing to Django Unfold! This guide will help you get started with contributing code, documentation, or reporting issues.
+
+## Ways to Contribute
+
+There are many ways to contribute to Django Unfold:
+
+- **Report bugs** - Help us identify and fix issues
+- **Suggest features** - Share ideas for new functionality
+- **Submit code** - Fix bugs or implement new features
+- **Improve documentation** - Help make the docs clearer and more comprehensive
+- **Help others** - Answer questions on Discord or GitHub Discussions
+- **Share your experience** - Write blog posts or create tutorials
+
+## Before You Start
+
+### Code of Conduct
+
+We expect all contributors to be respectful and constructive. Please:
+
+- Be welcoming to newcomers
+- Be respectful of differing viewpoints
+- Accept constructive criticism gracefully
+- Focus on what's best for the community
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.11 or higher
+- Node.js 18+ (for building frontend assets)
+- Git
+- PostgreSQL (optional, for testing PostgreSQL-specific features)
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/unfoldadmin/django-unfold.git
+cd django-unfold
+```
+
+### Install Dependencies
+
+Django Unfold uses `uv` for Python dependency management:
+
+<Steps>
+  <Step title="Install uv">
+    ```bash
+    pip install uv
+    ```
+  </Step>
+  <Step title="Create virtual environment">
+    ```bash
+    uv venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    ```
+  </Step>
+  <Step title="Install Python dependencies">
+    ```bash
+    uv pip install -e ".[dev]"
+    ```
+  </Step>
+  <Step title="Install Node.js dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+</Steps>
+
+### Running Tests
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_admin.py
+
+# Run with coverage
+pytest --cov=unfold
+```
+
+### Code Quality
+
+Django Unfold uses pre-commit hooks to maintain code quality:
+
+```bash
+# Install pre-commit hooks
+pre-commit install
+
+# Run manually
+pre-commit run --all-files
+```
+
+Our quality tools include:
+- **Ruff** - Fast Python linter and formatter
+- **MyPy** - Static type checking
+- **Prettier** - JavaScript/CSS formatting
+
+## Making Changes
+
+### Creating a Branch
+
+Create a descriptive branch name:
+
+```bash
+# For bug fixes
+git checkout -b fix/issue-description
+
+# For new features
+git checkout -b feature/feature-name
+
+# For documentation
+git checkout -b docs/what-you-are-documenting
+```
+
+### Development Workflow
+
+<Steps>
+  <Step title="Make your changes">
+    Edit the relevant files in the `src/unfold/` directory
+  </Step>
+  <Step title="Test your changes">
+    ```bash
+    # Run tests
+    pytest
+    
+    # Test in demo project
+    cd tests/
+    python manage.py runserver
+    ```
+  </Step>
+  <Step title="Update documentation">
+    If you've added new features or changed behavior, update the docs in the `docs/` directory
+  </Step>
+  <Step title="Commit your changes">
+    ```bash
+    git add .
+    git commit -m "Brief description of changes"
+    ```
+  </Step>
+</Steps>
+
+### Commit Message Guidelines
+
+Write clear, concise commit messages:
+
+```bash
+# Good commit messages
+git commit -m "Fix sidebar navigation overflow on mobile"
+git commit -m "Add support for custom dashboard widgets"
+git commit -m "Update installation docs for Python 3.11"
+
+# Less helpful messages (avoid these)
+git commit -m "Fix bug"
+git commit -m "Update stuff"
+git commit -m "WIP"
+```
+
+## Building Frontend Assets
+
+If you're working on CSS or JavaScript:
+
+```bash
+# Build Tailwind CSS
+npm run build:css
+
+# Watch for changes (development)
+npm run watch:css
+
+# Build for production
+npm run build:production
+```
+
+## Submitting Changes
+
+### Creating a Pull Request
+
+<Steps>
+  <Step title="Push your branch">
+    ```bash
+    git push origin your-branch-name
+    ```
+  </Step>
+  <Step title="Open a pull request">
+    1. Go to [GitHub repository](https://github.com/unfoldadmin/django-unfold)
+    2. Click "New Pull Request"
+    3. Select your branch
+    4. Fill out the PR template
+  </Step>
+  <Step title="Wait for review">
+    Maintainers will review your PR and may request changes
+  </Step>
+</Steps>
+
+### Pull Request Guidelines
+
+Your pull request should:
+
+<Accordion title="Include a clear description">
+  Explain what changes you made and why. Reference any related issues.
+  
+  Example:
+  ```markdown
+  ## Description
+  Fixes the sidebar overflow issue on mobile devices by adjusting the max-width and adding horizontal scroll.
+  
+  ## Related Issues
+  Closes #1234
+  
+  ## Changes Made
+  - Updated sidebar CSS for mobile viewports
+  - Added horizontal scroll for long navigation items
+  - Added tests for mobile layout
+  ```
+</Accordion>
+
+<Accordion title="Pass all tests">
+  Ensure all tests pass before submitting:
+  ```bash
+  pytest
+  pre-commit run --all-files
+  ```
+</Accordion>
+
+<Accordion title="Include tests for new features">
+  If you're adding new functionality, include tests:
+  ```python
+  def test_new_feature():
+      # Test your feature
+      assert expected_result == actual_result
+  ```
+</Accordion>
+
+<Accordion title="Update documentation">
+  Add or update relevant documentation in the `docs/` directory.
+</Accordion>
+
+<Accordion title="Keep PRs focused">
+  Submit separate PRs for unrelated changes. This makes review easier and faster.
+</Accordion>
+
+## Reporting Issues
+
+### Bug Reports
+
+When reporting bugs, include:
+
+- **Django Unfold version**: Check with `pip show django-unfold`
+- **Django version**: Check with `python -m django --version`
+- **Python version**: Check with `python --version`
+- **Browser** (if applicable): Chrome 120, Firefox 121, etc.
+- **Steps to reproduce**: Clear, step-by-step instructions
+- **Expected behavior**: What should happen
+- **Actual behavior**: What actually happens
+- **Screenshots** (if applicable): Visual issues are easier to understand with screenshots
+
+<Card title="Report a Bug" icon="bug" href="https://github.com/unfoldadmin/django-unfold/issues/new?template=bug_report.md">
+  Use our bug report template on GitHub
+</Card>
+
+### Feature Requests
+
+When suggesting features, explain:
+
+- **The problem**: What challenge are you trying to solve?
+- **Proposed solution**: How would this feature work?
+- **Alternatives considered**: What other solutions did you think about?
+- **Use case**: When would this feature be useful?
+
+<Card title="Request a Feature" icon="lightbulb" href="https://github.com/unfoldadmin/django-unfold/issues/new?template=feature_request.md">
+  Use our feature request template on GitHub
+</Card>
+
+## Documentation Contributions
+
+Documentation improvements are always welcome!
+
+### Documentation Structure
+
+Docs are organized by topic:
+
+```
+docs/
+├── installation/     # Getting started guides
+├── configuration/    # Configuration options
+├── components/       # UI components
+├── integrations/     # Third-party integrations
+└── resources/        # Additional resources
+```
+
+### Writing Guidelines
+
+<Note>
+Follow the style guidelines in this section for documentation contributions.
+</Note>
+
+- **Use active voice**: "Run the command" not "The command should be run"
+- **Address the reader**: Use "you" instead of "the user"
+- **Be concise**: One idea per sentence
+- **Show examples**: Include code samples
+- **Test your examples**: Ensure code samples actually work
+
+### Local Documentation Preview
+
+Preview your documentation changes:
+
+```bash
+# Install Mintlify CLI
+npm i -g mint
+
+# Navigate to docs directory
+cd docs/
+
+# Start preview server
+mint dev
+```
+
+View at `http://localhost:3000`
+
+## Community
+
+Join our community to connect with other contributors:
+
+<CardGroup cols={2}>
+  <Card title="Discord" icon="discord" href="https://discord.gg/9sQj9MEbNz">
+    Chat with maintainers and contributors
+  </Card>
+  <Card title="GitHub Discussions" icon="github" href="https://github.com/unfoldadmin/django-unfold/discussions">
+    Ask questions and share ideas
+  </Card>
+</CardGroup>
+
+## Recognition
+
+All contributors are recognized in our:
+
+- **GitHub Contributors** page
+- **Changelog** (for significant contributions)
+- **Release notes** (for features and major fixes)
+
+## License
+
+By contributing to Django Unfold, you agree that your contributions will be licensed under the same [MIT License](https://github.com/unfoldadmin/django-unfold/blob/main/LICENSE.md) that covers the project.
+
+## Questions?
+
+Not sure where to start or have questions about contributing?
+
+- Ask on [Discord](https://discord.gg/9sQj9MEbNz)
+- Open a [GitHub Discussion](https://github.com/unfoldadmin/django-unfold/discussions)
+- Review existing [pull requests](https://github.com/unfoldadmin/django-unfold/pulls) to see examples
+
+We're here to help and appreciate your interest in making Django Unfold better!

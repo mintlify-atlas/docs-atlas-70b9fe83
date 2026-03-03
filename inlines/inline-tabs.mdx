@@ -1,0 +1,232 @@
+---
+title: "Inline Tabs"
+description: "Organize related model inlines into tabs for better organization"
+---
+
+Inline tabs allow you to organize multiple inline formsets into a tabbed interface, making it easier to manage models with many related objects.
+
+## Overview
+
+When you have multiple inlines on a single model, you can organize them into tabs by setting the `tab` attribute on each inline class. This creates a cleaner interface and improves the user experience.
+
+<Frame>
+  <img src="/images/inline-tabs-example.png" alt="Inline tabs showing different related models" />
+</Frame>
+
+## Basic Setup
+
+To enable inline tabs, add the `tab` attribute to your inline class:
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin, TabularInline, StackedInline
+from .models import Author, Book, Review, Award
+
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True  # Enable tab for this inline
+
+class ReviewInline(StackedInline):
+    model = Review
+    extra = 0
+    tab = True  # Enable tab for this inline
+
+class AwardInline(TabularInline):
+    model = Award
+    extra = 0
+    tab = True  # Enable tab for this inline
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline, ReviewInline, AwardInline]
+```
+
+<Info>
+  When `tab=True` is set on an inline, it will be displayed in a separate tab instead of being stacked vertically with other inlines.
+</Info>
+
+## Tab with Custom Label
+
+The tab label is automatically derived from the model's verbose name, but you can customize it:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True
+    verbose_name = "Published Book"
+    verbose_name_plural = "Published Books"
+```
+
+## Mixing Tabs and Regular Inlines
+
+You can mix inlines with and without tabs. Inlines without `tab=True` will display normally above the tabbed interface:
+
+```python admin.py
+class PrimaryContactInline(StackedInline):
+    model = PrimaryContact
+    extra = 0
+    max_num = 1
+    # No tab attribute - displays normally
+
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True  # Displays in tabs
+
+class ReviewInline(TabularInline):
+    model = Review
+    extra = 0
+    tab = True  # Displays in tabs
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [
+        PrimaryContactInline,  # Displays above tabs
+        BookInline,            # Tab 1
+        ReviewInline,          # Tab 2
+    ]
+```
+
+## Tab Error Indication
+
+When an inline formset has validation errors, the tab will be highlighted to indicate which tab contains errors:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True
+    
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        # Errors in this formset will highlight the tab
+        return formset
+```
+
+<Warning>
+  The system automatically detects errors in inline formsets and highlights the corresponding tab. You don't need to implement this manually.
+</Warning>
+
+## Combining with Pagination
+
+Inline tabs work seamlessly with pagination for large datasets:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True
+    per_page = 10  # Enable pagination with tabs
+
+class ReviewInline(TabularInline):
+    model = Review
+    extra = 0
+    tab = True
+    per_page = 20  # Each tab can have different pagination
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline, ReviewInline]
+```
+
+<Check>
+  Learn more about pagination in [Paginated Inlines](/inlines/paginated).
+</Check>
+
+## Combining with Sortable Inlines
+
+You can make inline tabs sortable for drag-and-drop ordering:
+
+```python admin.py
+class BookInline(TabularInline):
+    model = Book
+    extra = 1
+    tab = True
+    ordering_field = 'order'  # Enable sorting
+    hide_ordering_field = True
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline]
+```
+
+<Check>
+  Learn more about sortable functionality in [Sortable Inlines](/inlines/sortable).
+</Check>
+
+## Active Tab Detection
+
+The first tab with validation errors is automatically activated. If there are no errors, the first tab is active by default:
+
+```python admin.py
+from unfold.admin import ModelAdmin
+
+@admin.register(Author)
+class AuthorAdmin(ModelAdmin):
+    inlines = [BookInline, ReviewInline, AwardInline]
+    
+    # The system automatically:
+    # 1. Shows the first tab by default
+    # 2. Switches to the first tab with errors on validation
+    # 3. Highlights all tabs containing errors
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep related content together" icon="layer-group">
+    Group logically related inlines in the same tab to make navigation intuitive for users.
+  </Accordion>
+  
+  <Accordion title="Use descriptive labels" icon="tag">
+    Set clear `verbose_name_plural` values on your models so tab labels are meaningful.
+  </Accordion>
+  
+  <Accordion title="Limit the number of tabs" icon="list">
+    Too many tabs can be overwhelming. Consider grouping related models or using a different organization strategy if you have more than 5-6 tabs.
+  </Accordion>
+  
+  <Accordion title="Combine with collapsible" icon="compress">
+    For complex forms, consider making some inlines collapsible while keeping others in tabs:
+    
+    ```python
+    class OptionalInfoInline(TabularInline):
+        model = OptionalInfo
+        tab = True
+        collapsible = True  # Can be collapsed within its tab
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Technical Details
+
+<ParamField path="tab" type="bool" default="False">
+  When set to `True`, the inline will be displayed in a separate tab.
+</ParamField>
+
+The tab system uses the `unfold/helpers/tab_list.html` template and integrates with:
+- Error detection via `unfold.templatetags.unfold.tabs_primary_active`
+- Error counting via `unfold.templatetags.unfold.tabs_errors_count`
+
+<Note>
+  Inline tabs are automatically detected when rendering the change form. No additional configuration is needed beyond setting `tab=True`.
+</Note>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Fieldset Tabs" icon="rectangle-vertical-history" href="/inlines/fieldset-tabs">
+    Create tabs within fieldsets
+  </Card>
+  <Card title="Model Tabs" icon="folders" href="/inlines/model-tabs">
+    Configure navigation tabs for models
+  </Card>
+  <Card title="Paginated Inlines" icon="page" href="/inlines/paginated">
+    Add pagination to your inline tabs
+  </Card>
+  <Card title="Sortable Inlines" icon="arrow-down-arrow-up" href="/inlines/sortable">
+    Enable drag-and-drop ordering
+  </Card>
+</CardGroup>

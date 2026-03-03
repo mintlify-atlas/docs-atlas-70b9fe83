@@ -1,0 +1,242 @@
+---
+title: "@action Decorator"
+description: Complete API reference for the Unfold action decorator
+---
+
+## Overview
+
+The `@action` decorator enhances Django admin actions with additional features like permissions, custom icons, URL paths, and styling variants.
+
+## Decorator Signature
+
+```python
+from unfold.decorators import action
+
+@action(
+    function: Callable | None = None,
+    *,
+    permissions: Iterable[str] | None = None,
+    description: str | None = None,
+    url_path: str | None = None,
+    attrs: dict[str, Any] | None = None,
+    icon: str | None = None,
+    variant: ActionVariant | None = ActionVariant.DEFAULT,
+) -> ActionFunction
+```
+
+Located in `unfold/decorators.py:14`
+
+## Parameters
+
+<ParamField path="function" type="Callable | None" default="None">
+  The function to decorate. Can be None when using the decorator with parameters.
+</ParamField>
+
+<ParamField path="permissions" type="Iterable[str] | None" default="None">
+  List of permission checks. Can be:
+  - Django permission strings (e.g., `"app.change_model"`)
+  - Permission method names (e.g., `"change"`, `"delete"`) that will be resolved to `has_<permission>_permission` methods
+</ParamField>
+
+<ParamField path="description" type="str | None" default="None">
+  Human-readable description displayed in the admin interface.
+</ParamField>
+
+<ParamField path="url_path" type="str | None" default="None">
+  Custom URL path for the action. If not provided, the function name is used.
+</ParamField>
+
+<ParamField path="attrs" type="dict[str, Any] | None" default="None">
+  HTML attributes to apply to the action button/link.
+</ParamField>
+
+<ParamField path="icon" type="str | None" default="None">
+  Material Symbols icon name to display with the action.
+</ParamField>
+
+<ParamField path="variant" type="ActionVariant | None" default="ActionVariant.DEFAULT">
+  Visual style variant for the action button.
+</ParamField>
+
+## ActionVariant Enum
+
+The `ActionVariant` enum defines the visual styles for actions:
+
+```python
+from unfold.enums import ActionVariant
+
+ActionVariant.DEFAULT   # Default button style
+ActionVariant.PRIMARY   # Primary button style
+ActionVariant.DANGER    # Danger/warning button style
+ActionVariant.SUCCESS   # Success button style
+```
+
+## Usage Examples
+
+### Basic Action
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.decorators import action
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions = ["publish_articles"]
+    
+    @action(description="Publish selected articles")
+    def publish_articles(self, request, queryset):
+        queryset.update(status="published")
+        self.message_user(request, "Articles published successfully.")
+```
+
+### Action with Icon and Variant
+
+```python
+from unfold.decorators import action
+from unfold.enums import ActionVariant
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions = ["archive_articles"]
+    
+    @action(
+        description="Archive selected articles",
+        icon="archive",
+        variant=ActionVariant.DANGER,
+    )
+    def archive_articles(self, request, queryset):
+        queryset.update(status="archived")
+```
+
+### Action with Permissions
+
+```python
+from unfold.decorators import action
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions = ["publish_articles"]
+    
+    @action(
+        description="Publish selected articles",
+        permissions=["change"],  # Requires change permission
+        icon="publish",
+    )
+    def publish_articles(self, request, queryset):
+        queryset.update(status="published")
+```
+
+### Action with Django Permission String
+
+```python
+@action(
+    description="Delete all articles",
+    permissions=["blog.delete_article"],  # Full permission path
+    icon="delete",
+    variant=ActionVariant.DANGER,
+)
+def delete_all(self, request, queryset):
+    queryset.delete()
+```
+
+### Detail Action
+
+Actions can be used on detail pages:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_detail = ["send_notification"]
+    
+    @action(
+        description="Send notification",
+        url_path="notify",
+        icon="notifications",
+    )
+    def send_notification(self, request, object_id):
+        article = self.get_object(request, object_id)
+        # Send notification logic
+        self.message_user(request, f"Notification sent for {article}")
+```
+
+### Row Action
+
+Actions displayed on each row in the changelist:
+
+```python
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    actions_row = ["quick_publish"]
+    
+    @action(
+        description="Quick Publish",
+        icon="flash_on",
+        variant=ActionVariant.SUCCESS,
+    )
+    def quick_publish(self, request, object_id):
+        article = self.get_object(request, object_id)
+        article.status = "published"
+        article.save()
+        return redirect(request.META.get('HTTP_REFERER'))
+```
+
+### Custom URL Path
+
+```python
+@action(
+    description="Export to PDF",
+    url_path="export-pdf",  # URL will be /admin/app/model/export-pdf/
+    icon="picture_as_pdf",
+)
+def export_pdf(self, request, queryset):
+    # Export logic
+    pass
+```
+
+### Custom HTML Attributes
+
+```python
+@action(
+    description="Dangerous Action",
+    attrs={
+        "data-confirm": "Are you sure?",
+        "class": "custom-class",
+    },
+    icon="warning",
+    variant=ActionVariant.DANGER,
+)
+def dangerous_action(self, request, queryset):
+    # Action logic
+    pass
+```
+
+## Action Function Signature
+
+The decorated function receives:
+
+<ParamField path="model_admin" type="BaseModelAdmin" required>
+  The ModelAdmin instance.
+</ParamField>
+
+<ParamField path="request" type="HttpRequest" required>
+  The HTTP request object.
+</ParamField>
+
+<ParamField path="queryset" type="QuerySet">
+  The selected objects (for list actions).
+</ParamField>
+
+<ParamField path="object_id" type="str">
+  The object ID (for detail/row actions).
+</ParamField>
+
+## Permission Handling
+
+The decorator supports two types of permissions:
+
+1. **Method-based permissions**: Strings like `"change"`, `"delete"`, `"view"` are resolved to `has_<permission>_permission(request)` methods on the ModelAdmin.
+
+2. **Django permission strings**: Full paths like `"app.change_model"` are checked using `request.user.has_perm()`.
+
+All permissions must pass for the action to execute. If any permission check fails, a `PermissionDenied` exception is raised.

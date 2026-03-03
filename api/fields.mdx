@@ -1,0 +1,338 @@
+---
+title: Fields
+description: Complete API reference for Unfold form fields
+---
+
+## Overview
+
+Unfold provides custom form fields that integrate with Unfold's widgets and styling system.
+
+## Field Classes
+
+### UnfoldAdminField
+
+```python
+from unfold.fields import UnfoldAdminField
+
+class UnfoldAdminField(helpers.AdminField)
+```
+
+Located in `unfold/fields.py:194`
+
+Enhanced admin field wrapper that provides custom label rendering with support for modeltranslation flags.
+
+#### Methods
+
+##### label_tag
+
+```python
+def label_tag(self) -> SafeText
+```
+
+Renders the label tag for the field with Unfold styling. Automatically:
+- Adds appropriate CSS classes based on field type (checkbox vs standard)
+- Marks required fields with a red asterisk
+- Supports modeltranslation language flags in labels
+
+**Example:**
+
+```python
+# In a template, the label will render as:
+# <label class="block font-semibold mb-2 text-sm required">
+#   Field Name <span class="text-red-600">*</span>
+# </label>
+```
+
+### UnfoldAdminReadonlyField
+
+```python
+from unfold.fields import UnfoldAdminReadonlyField
+
+class UnfoldAdminReadonlyField(helpers.AdminReadonlyField)
+```
+
+Located in `unfold/fields.py:38`
+
+Enhanced readonly field with special rendering for images, files, JSON, and custom preprocessing.
+
+#### Properties
+
+<ParamField path="url" type="str | bool">
+  Returns the URL for file/image fields, or False if not applicable.
+</ParamField>
+
+<ParamField path="is_json" type="bool">
+  True if the field is a JSONField.
+</ParamField>
+
+<ParamField path="is_image" type="bool">
+  True if the field is an ImageField.
+</ParamField>
+
+<ParamField path="is_file" type="bool">
+  True if the field is a FileField or ImageField.
+</ParamField>
+
+#### Methods
+
+##### label_tag
+
+```python
+def label_tag(self) -> SafeText
+```
+
+Renders the label for readonly fields.
+
+##### contents
+
+```python
+def contents(self) -> SafeString
+```
+
+Returns the formatted content of the readonly field with preprocessing applied.
+
+##### get_admin_url
+
+```python
+def get_admin_url(self, remote_field, remote_obj)
+```
+
+Generates admin URLs for related objects.
+
+**Example Usage:**
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ["created_at", "metadata"]
+    
+    # Preprocess JSON field
+    readonly_preprocess_fields = {
+        "metadata": lambda value: str(value).upper(),
+    }
+```
+
+## Autocomplete Fields
+
+### UnfoldAdminAutocompleteModelChoiceField
+
+```python
+from unfold.fields import UnfoldAdminAutocompleteModelChoiceField
+
+class UnfoldAdminAutocompleteModelChoiceField(
+    AutocompleteFieldMixin,
+    ModelChoiceField
+)
+```
+
+Located in `unfold/fields.py:236`
+
+Model choice field with autocomplete functionality.
+
+#### Constructor
+
+```python
+def __init__(self, url_path: str, *args: Any, **kwargs: Any) -> None
+```
+
+<ParamField path="url_path" type="str" required>
+  The URL path for the autocomplete endpoint.
+</ParamField>
+
+#### Attributes
+
+<ParamField path="widget" type="Type" default="UnfoldAdminAutocompleteModelChoiceFieldWidget">
+  The widget class used for rendering.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django import forms
+from unfold.fields import UnfoldAdminAutocompleteModelChoiceField
+from .models import Author
+
+class ArticleForm(forms.ModelForm):
+    author = UnfoldAdminAutocompleteModelChoiceField(
+        url_path="admin:blog_author_autocomplete",
+        queryset=Author.objects.all(),
+        required=True,
+    )
+    
+    class Meta:
+        model = Article
+        fields = ["title", "author", "content"]
+```
+
+### UnfoldAdminMultipleAutocompleteModelChoiceField
+
+```python
+from unfold.fields import UnfoldAdminMultipleAutocompleteModelChoiceField
+
+class UnfoldAdminMultipleAutocompleteModelChoiceField(
+    AutocompleteFieldMixin,
+    ModelMultipleChoiceField
+)
+```
+
+Located in `unfold/fields.py:240`
+
+Multiple model choice field with autocomplete functionality.
+
+#### Constructor
+
+```python
+def __init__(self, url_path: str, *args: Any, **kwargs: Any) -> None
+```
+
+<ParamField path="url_path" type="str" required>
+  The URL path for the autocomplete endpoint.
+</ParamField>
+
+#### Attributes
+
+<ParamField path="widget" type="Type" default="UnfoldAdminMultipleAutocompleteModelChoiceFieldWidget">
+  The widget class used for rendering.
+</ParamField>
+
+#### Usage Example
+
+```python
+from django import forms
+from unfold.fields import UnfoldAdminMultipleAutocompleteModelChoiceField
+from .models import Tag
+
+class ArticleForm(forms.ModelForm):
+    tags = UnfoldAdminMultipleAutocompleteModelChoiceField(
+        url_path="admin:blog_tag_autocomplete",
+        queryset=Tag.objects.all(),
+        required=False,
+    )
+    
+    class Meta:
+        model = Article
+        fields = ["title", "tags", "content"]
+```
+
+## AutocompleteFieldMixin
+
+```python
+from unfold.fields import AutocompleteFieldMixin
+
+class AutocompleteFieldMixin
+```
+
+Located in `unfold/fields.py:225`
+
+Mixin that adds autocomplete functionality to form fields.
+
+### Methods
+
+#### widget_attrs
+
+```python
+def widget_attrs(self, widget: Widget) -> dict[str, Any]
+```
+
+Returns widget attributes including the AJAX URL for autocomplete.
+
+<ParamField path="widget" type="Widget" required>
+  The widget instance.
+</ParamField>
+
+**Returns:** Dictionary with `data-ajax--url` set to the autocomplete endpoint.
+
+## Complete Form Example
+
+```python
+from django import forms
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.fields import (
+    UnfoldAdminAutocompleteModelChoiceField,
+    UnfoldAdminMultipleAutocompleteModelChoiceField,
+)
+from unfold.widgets import (
+    UnfoldAdminTextInputWidget,
+    UnfoldAdminTextareaWidget,
+    UnfoldBooleanSwitchWidget,
+)
+from .models import Article, Author, Tag
+
+class ArticleForm(forms.ModelForm):
+    author = UnfoldAdminAutocompleteModelChoiceField(
+        url_path="admin:blog_author_autocomplete",
+        queryset=Author.objects.all(),
+        required=True,
+        label="Article Author",
+    )
+    
+    tags = UnfoldAdminMultipleAutocompleteModelChoiceField(
+        url_path="admin:blog_tag_autocomplete",
+        queryset=Tag.objects.all(),
+        required=False,
+        label="Tags",
+    )
+    
+    class Meta:
+        model = Article
+        fields = ["title", "author", "content", "tags", "is_published"]
+        widgets = {
+            "title": UnfoldAdminTextInputWidget(
+                attrs={"prefix_icon": "title"}
+            ),
+            "content": UnfoldAdminTextareaWidget(),
+            "is_published": UnfoldBooleanSwitchWidget(),
+        }
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    form = ArticleForm
+    readonly_fields = ["created_at", "updated_at"]
+    
+    readonly_preprocess_fields = {
+        "created_at": lambda value: value.strftime("%B %d, %Y at %I:%M %p"),
+    }
+```
+
+## Readonly Field Preprocessing
+
+You can preprocess readonly field values before display:
+
+```python
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+import json
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ["metadata", "created_at"]
+    
+    readonly_preprocess_fields = {
+        # Using a lambda
+        "created_at": lambda value: value.strftime("%B %d, %Y"),
+        
+        # Using a function
+        "metadata": lambda value: json.dumps(value, indent=2),
+    }
+```
+
+You can also reference a function by import string:
+
+```python
+# myapp/utils.py
+def format_metadata(value):
+    return json.dumps(value, indent=2)
+
+# myapp/admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin):
+    readonly_fields = ["metadata"]
+    
+    readonly_preprocess_fields = {
+        "metadata": "myapp.utils.format_metadata",
+    }
+```

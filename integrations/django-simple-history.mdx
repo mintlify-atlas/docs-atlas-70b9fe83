@@ -1,0 +1,426 @@
+---
+title: Django Simple History
+description: Track and audit model changes in Django Unfold with django-simple-history for complete version control and change history
+---
+
+## Overview
+
+Django Simple History automatically tracks changes to your Django models, creating a complete audit trail of all modifications. Unfold's integration provides a beautifully styled history interface that seamlessly integrates with your admin panel.
+
+<Info>
+  Every change to a tracked model is recorded with information about who made the change, when it occurred, and what was modified.
+</Info>
+
+## Installation
+
+<Steps>
+  <Step title="Install django-simple-history">
+    Install the package using pip:
+    
+    ```bash
+    pip install django-simple-history
+    ```
+  </Step>
+  
+  <Step title="Add to INSTALLED_APPS">
+    Add both `unfold.contrib.simple_history` and `simple_history` to your settings. Order matters:
+    
+    ```python settings.py
+    INSTALLED_APPS = [
+        "unfold",
+        "unfold.contrib.simple_history",  # After unfold, before simple_history
+        
+        "django.contrib.admin",
+        "django.contrib.auth",
+        # ...
+        
+        "simple_history",
+    ]
+    ```
+  </Step>
+  
+  <Step title="Run migrations">
+    Create history tables for your models:
+    
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
+  </Step>
+</Steps>
+
+## Basic Usage
+
+### Adding History to Models
+
+Add history tracking to your models:
+
+```python models.py
+from django.db import models
+from simple_history.models import HistoricalRecords
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    author = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    published = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Add history tracking
+    history = HistoricalRecords()
+    
+    def __str__(self):
+        return self.title
+```
+
+<Note>
+  Adding `HistoricalRecords()` automatically creates a historical version table that mirrors your model's structure.
+</Note>
+
+### Configuring Admin
+
+Inherit from both `ModelAdmin` and `SimpleHistoryAdmin`:
+
+```python admin.py
+from django.contrib import admin
+from simple_history.admin import SimpleHistoryAdmin
+from unfold.admin import ModelAdmin
+from .models import Article
+
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin, SimpleHistoryAdmin):
+    list_display = ["title", "author", "published", "updated_at"]
+    list_filter = ["published", "created_at"]
+    search_fields = ["title", "content"]
+    
+    # Optional: customize history display
+    history_list_display = ["title", "published"]
+```
+
+## Advanced Configuration
+
+### Custom History User
+
+Specify custom user field for tracking:
+
+```python models.py
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    modified_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True)
+    
+    history = HistoricalRecords(
+        history_user_id_field="modified_by",
+        history_user_setter=lambda instance, user: instance.modified_by
+    )
+```
+
+### Excluding Fields from History
+
+Omit certain fields from history tracking:
+
+```python models.py
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    view_count = models.IntegerField(default=0)  # Don't track this
+    last_viewed = models.DateTimeField(null=True)  # Don't track this
+    
+    history = HistoricalRecords(
+        excluded_fields=["view_count", "last_viewed"]
+    )
+```
+
+### Custom History Table
+
+Specify a custom table name:
+
+```python models.py
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    
+    history = HistoricalRecords(
+        table_name="article_audit_log"
+    )
+```
+
+### Tracking Foreign Keys
+
+Configure how foreign keys are tracked:
+
+```python models.py
+class Comment(models.Model):
+    article = models.ForeignKey(Article, on_delete=models.CASCADE)
+    text = models.TextField()
+    author = models.ForeignKey("auth.User", on_delete=models.CASCADE)
+    
+    history = HistoricalRecords(
+        # Store foreign key values instead of IDs
+        inherit=True
+    )
+```
+
+## Querying History
+
+### Access Historical Records
+
+Query the history of an object:
+
+```python
+# Get an article
+article = Article.objects.get(id=1)
+
+# Access all historical records
+history = article.history.all()
+
+# Get the most recent change
+latest = article.history.first()
+
+# Get history at a specific time
+from datetime import datetime
+history_at_date = article.history.as_of(datetime(2024, 1, 1))
+
+# Get changes by a specific user
+user_changes = article.history.filter(history_user=user)
+```
+
+### Comparing Versions
+
+Compare different versions of a record:
+
+```python
+# Get two versions
+version_1 = article.history.all()[0]
+version_2 = article.history.all()[1]
+
+# Get changed fields
+delta = version_1.diff_against(version_2)
+
+for change in delta.changes:
+    print(f"{change.field} changed from {change.old} to {change.new}")
+```
+
+### Reverting Changes
+
+Restore a previous version:
+
+```python
+# Get a historical version
+old_version = article.history.all()[5]
+
+# Revert to this version
+old_version.instance.save()
+```
+
+## History Display Features
+
+### History Button
+
+Unfold automatically adds a "History" button to change forms for models with history tracking:
+
+<Frame>
+  <img src="/images/django-simple-history-button.png" alt="History button" />
+</Frame>
+
+### History List View
+
+The history page displays:
+
+- Timestamp of each change
+- User who made the change
+- Type of change (Created, Changed, Deleted)
+- Fields that were modified
+- Ability to view and compare versions
+
+<Tip>
+  Click on any historical record to view the complete state of the object at that point in time.
+</Tip>
+
+## Middleware Configuration
+
+Automatically track the current user making changes:
+
+```python settings.py
+MIDDLEWARE = [
+    # ...
+    "simple_history.middleware.HistoryRequestMiddleware",
+]
+```
+
+With this middleware, history records will automatically capture the user from the request:
+
+```python views.py
+# User is automatically tracked
+article.title = "Updated Title"
+article.save()  # History record includes current user
+```
+
+## Admin Customization
+
+### Custom History Display
+
+Customize which fields appear in history:
+
+```python admin.py
+@admin.register(Article)
+class ArticleAdmin(ModelAdmin, SimpleHistoryAdmin):
+    # Show only these fields in history list
+    history_list_display = ["title", "published", "author"]
+    
+    # Add filters to history view
+    history_list_filter = ["published"]
+```
+
+### History Field Formatting
+
+Format how fields appear in history:
+
+```python admin.py
+class ArticleAdmin(ModelAdmin, SimpleHistoryAdmin):
+    def history_view(self, request, object_id, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["title"] = "Article Change History"
+        return super().history_view(request, object_id, extra_context)
+```
+
+## Performance Considerations
+
+### Index Historical Tables
+
+Add indexes for better query performance:
+
+```python models.py
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    
+    history = HistoricalRecords()
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["-updated_at"]),
+        ]
+```
+
+### Limit History Retention
+
+Clean up old history records:
+
+```python management/commands/clean_history.py
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+from datetime import timedelta
+from myapp.models import Article
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        # Delete history older than 1 year
+        cutoff_date = timezone.now() - timedelta(days=365)
+        Article.history.filter(history_date__lt=cutoff_date).delete()
+```
+
+### Bulk Operations
+
+Disable history for bulk operations:
+
+```python
+from simple_history.utils import bulk_create_with_history, bulk_update_with_history
+
+# Bulk create with history
+articles = [Article(title=f"Article {i}") for i in range(100)]
+bulk_create_with_history(articles, Article)
+
+# Skip history for bulk operations
+Article.history.skip_history = True
+Article.objects.filter(published=False).update(published=True)
+Article.history.skip_history = False
+```
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Audit Compliance">
+    Maintain complete audit trails for regulatory compliance:
+    
+    ```python
+    # Track all changes to sensitive data
+    class PatientRecord(models.Model):
+        # ... fields ...
+        history = HistoricalRecords()
+    
+    # Generate audit reports
+    changes = PatientRecord.history.filter(
+        history_date__gte=start_date,
+        history_date__lte=end_date
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Version Control">
+    Implement version control for content:
+    
+    ```python
+    # Track document versions
+    article = Article.objects.get(id=1)
+    versions = article.history.all()
+    
+    # Revert to previous version
+    previous_version = versions[5]
+    previous_version.instance.save()
+    ```
+  </Accordion>
+  
+  <Accordion title="Debugging">
+    Track down when and how bugs were introduced:
+    
+    ```python
+    # Find when a field changed
+    changes = article.history.filter(
+        content__contains="bug"
+    )
+    
+    # See who made the change
+    for change in changes:
+        print(f"Changed by {change.history_user} at {change.history_date}")
+    ```
+  </Accordion>
+  
+  <Accordion title="Data Recovery">
+    Recover accidentally deleted or modified data:
+    
+    ```python
+    # Find deleted records
+    deleted = Article.history.filter(history_type="-")
+    
+    # Restore deleted record
+    if deleted.exists():
+        deleted.first().instance.save()
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Live Demo
+
+<Card 
+  title="View History Tracking" 
+  icon="arrow-up-right-from-square" 
+  href="https://demo.unfoldadmin.com/en/admin/formula/driver/56/history/"
+>
+  Explore the history interface with real data and see change tracking in action
+</Card>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Simple History Docs" icon="book" href="https://django-simple-history.readthedocs.io/">
+    Complete documentation and API reference
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/jazzband/django-simple-history">
+    Source code and community discussions
+  </Card>
+</CardGroup>
+
+<Warning>
+  Historical tables can grow large over time. Implement a retention policy and regular cleanup for production environments.
+</Warning>

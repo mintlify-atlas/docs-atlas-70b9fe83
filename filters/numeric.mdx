@@ -1,0 +1,512 @@
+---
+title: 'Numeric Filters'
+description: 'Range, slider, and single value filters for numeric fields in Django admin'
+icon: 'hashtag'
+---
+
+## Overview
+
+Numeric filters provide specialized interfaces for filtering integer, float, and decimal fields. They support exact value matching, range filtering, and interactive slider controls.
+
+<Info>
+Numeric filters work with `IntegerField`, `FloatField`, `DecimalField`, and `AutoField`.
+</Info>
+
+## Available Numeric Filters
+
+<CardGroup cols={2}>
+  <Card title="SingleNumericFilter" icon="1">
+    Filter by exact numeric value
+  </Card>
+  
+  <Card title="RangeNumericFilter" icon="arrows-left-right">
+    Filter by min/max range with text inputs
+  </Card>
+  
+  <Card title="RangeNumericListFilter" icon="list-ol">
+    Range filter for custom SimpleListFilter
+  </Card>
+  
+  <Card title="SliderNumericFilter" icon="sliders">
+    Interactive range slider for visual filtering
+  </Card>
+</CardGroup>
+
+## SingleNumericFilter
+
+Filter by an exact numeric value.
+
+### Basic Usage
+
+```python models.py
+from django.db import models
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock = models.IntegerField(default=0)
+    rating = models.FloatField(null=True, blank=True)
+```
+
+```python admin.py
+from django.contrib import admin
+from unfold.admin import ModelAdmin
+from unfold.contrib.filters.admin import SingleNumericFilter
+
+from .models import Product
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "stock", "rating"]
+    list_filter = [
+        ("stock", SingleNumericFilter),
+        ("rating", SingleNumericFilter),
+    ]
+```
+
+<Tip>
+Users can type an exact number to filter results. Great for ID lookups or specific quantity searches.
+</Tip>
+
+### Custom Parameter Name
+
+```python admin.py
+from unfold.contrib.filters.admin import SingleNumericFilter
+
+
+class CustomStockFilter(SingleNumericFilter):
+    parameter_name = "exact_stock"
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("stock", CustomStockFilter),
+    ]
+```
+
+## RangeNumericFilter
+
+Filter by a minimum and maximum value range.
+
+### Basic Usage
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeNumericFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "stock"]
+    list_filter = [
+        ("price", RangeNumericFilter),
+        ("stock", RangeNumericFilter),
+    ]
+```
+
+This creates two input fields:
+- **From**: Minimum value (greater than or equal to)
+- **To**: Maximum value (less than or equal to)
+
+### Example Usage
+
+<Steps>
+  <Step title="User enters range">
+    User enters:
+    - From: 10
+    - To: 50
+  </Step>
+
+  <Step title="Filter applies query">
+    Query becomes:
+    ```python
+    queryset.filter(price__gte=10, price__lte=50)
+    ```
+  </Step>
+
+  <Step title="Results display">
+    Only products with price between $10 and $50 are shown.
+  </Step>
+</Steps>
+
+### Partial Ranges
+
+Users can enter only "From" or only "To":
+
+```python
+# Only "From: 100" entered
+queryset.filter(price__gte=100)
+
+# Only "To: 500" entered
+queryset.filter(price__lte=500)
+```
+
+## RangeNumericListFilter
+
+Range filter for custom `SimpleListFilter` classes.
+
+### Basic Usage
+
+```python admin.py
+from unfold.contrib.filters.admin import RangeNumericListFilter
+
+
+class PriceRangeFilter(RangeNumericListFilter):
+    title = "Price Range"
+    parameter_name = "price"
+
+    def lookups(self, request, model_admin):
+        # Required but not used for range filters
+        return (("dummy", "dummy"),)
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [PriceRangeFilter]
+```
+
+<Note>
+The `lookups()` method is required by Django but not used. Just return a dummy tuple.
+</Note>
+
+### Custom Field Filtering
+
+```python admin.py
+class CustomPriceFilter(RangeNumericListFilter):
+    title = "Discounted Price"
+    parameter_name = "discount_price"
+
+    def queryset(self, request, queryset):
+        value_from = self.used_parameters.get(f"{self.parameter_name}_from")
+        value_to = self.used_parameters.get(f"{self.parameter_name}_to")
+
+        filters = {}
+        if value_from:
+            filters[f"discount_price__gte"] = value_from
+        if value_to:
+            filters[f"discount_price__lte"] = value_to
+
+        return queryset.filter(**filters) if filters else queryset
+
+    def lookups(self, request, model_admin):
+        return (("dummy", "dummy"),)
+```
+
+## SliderNumericFilter
+
+Interactive range slider for visual filtering.
+
+### Basic Usage
+
+```python admin.py
+from unfold.contrib.filters.admin import SliderNumericFilter
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_display = ["name", "price", "stock"]
+    list_filter = [
+        ("price", SliderNumericFilter),
+        ("stock", SliderNumericFilter),
+    ]
+```
+
+<Info>
+The slider automatically calculates min/max values from your database and creates an interactive UI.
+</Info>
+
+### How It Works
+
+The slider:
+1. Queries the database to find minimum and maximum values
+2. Creates a draggable range slider with those bounds
+3. Updates the filter as users drag the handles
+4. Shows current min/max values below the slider
+
+### Custom Step Size
+
+Control the increment between values:
+
+```python admin.py
+class PriceSliderFilter(SliderNumericFilter):
+    STEP = 10  # Increment by 10
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("price", PriceSliderFilter),
+    ]
+```
+
+### Decimal Precision
+
+For float and decimal fields:
+
+```python admin.py
+class RatingSliderFilter(SliderNumericFilter):
+    MAX_DECIMALS = 2  # Show 2 decimal places
+    STEP = 0.1        # Increment by 0.1
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("rating", RatingSliderFilter),
+    ]
+```
+
+### Advanced Configuration
+
+```python admin.py
+class AdvancedSliderFilter(SliderNumericFilter):
+    MAX_DECIMALS = 3
+    STEP = 0.5
+
+    def choices(self, changelist):
+        # Customize slider appearance
+        for choice in super().choices(changelist):
+            # choice contains min, max, step, decimals
+            yield choice
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("price", AdvancedSliderFilter),
+    ]
+```
+
+## Field Type Support
+
+### IntegerField
+
+```python models.py
+class Product(models.Model):
+    stock = models.IntegerField()
+```
+
+```python admin.py
+list_filter = [
+    ("stock", RangeNumericFilter),  # Works perfectly
+]
+```
+
+### FloatField
+
+```python models.py
+class Product(models.Model):
+    rating = models.FloatField()
+```
+
+```python admin.py
+list_filter = [
+    ("rating", SliderNumericFilter),  # Automatically handles decimals
+]
+```
+
+### DecimalField
+
+```python models.py
+from decimal import Decimal
+
+class Product(models.Model):
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+```
+
+```python admin.py
+list_filter = [
+    ("price", RangeNumericFilter),  # Respects decimal places
+]
+```
+
+### AutoField (Primary Keys)
+
+```python admin.py
+# Filter by ID range
+list_filter = [
+    ("id", RangeNumericFilter),
+]
+```
+
+## Error Handling
+
+### Invalid Input
+
+Filters automatically handle invalid input:
+
+```python admin.py
+# User enters "abc" in numeric field
+# Filter ignores invalid input and shows all results
+```
+
+### Type Validation
+
+```python admin.py
+from unfold.contrib.filters.admin import SingleNumericFilter
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=200)  # Not numeric!
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("name", SingleNumericFilter),  # Raises TypeError
+    ]
+```
+
+<Warning>
+Applying numeric filters to non-numeric fields raises a `TypeError`. Ensure you only use them with compatible field types.
+</Warning>
+
+## Combining Filters
+
+Use multiple numeric filters together:
+
+```python admin.py
+from unfold.contrib.filters.admin import (
+    RangeNumericFilter,
+    SingleNumericFilter,
+    SliderNumericFilter,
+)
+
+
+@admin.register(Product)
+class ProductAdmin(ModelAdmin):
+    list_filter = [
+        ("price", SliderNumericFilter),      # Visual range
+        ("stock", RangeNumericFilter),        # Text inputs
+        ("id", SingleNumericFilter),          # Exact match
+    ]
+```
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Slider queries">
+    `SliderNumericFilter` runs two aggregate queries to find min/max values:
+
+    ```python
+    queryset.aggregate(min=Min('price'), max=Max('price'))
+    ```
+
+    For large tables, consider:
+    - Adding database indexes
+    - Using `RangeNumericFilter` instead
+    - Caching min/max values
+  </Accordion>
+
+  <Accordion title="Database indexes">
+    Add indexes to filtered numeric fields:
+
+    ```python models.py
+    class Product(models.Model):
+        price = models.DecimalField(
+            max_digits=10,
+            decimal_places=2,
+            db_index=True  # Add index
+        )
+    ```
+  </Accordion>
+
+  <Accordion title="Partial filtering">
+    Range filters use `__gte` and `__lte` lookups efficiently:
+
+    ```python
+    # Efficient query
+    Product.objects.filter(price__gte=10, price__lte=50)
+    ```
+
+    Ensure your database can use indexes for these lookups.
+  </Accordion>
+</AccordionGroup>
+
+## Styling and Templates
+
+### Templates Used
+
+- **SingleNumericFilter**: `unfold/filters/filters_numeric_single.html`
+- **RangeNumericFilter**: `unfold/filters/filters_numeric_range.html`
+- **SliderNumericFilter**: `unfold/filters/filters_numeric_slider.html`
+
+### JavaScript Dependencies
+
+Slider filter uses:
+- **noUiSlider**: Range slider component
+- **wNumb**: Number formatting
+
+Both are included automatically via `Media` class.
+
+## API Reference
+
+### SingleNumericFilter
+
+<ParamField path="parameter_name" type="str | None" default="None">
+  URL parameter name. Defaults to field path.
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_numeric_single.html"'>
+  Template used to render the filter
+</ParamField>
+
+### RangeNumericFilter
+
+<ParamField path="parameter_name" type="str | None" default="None">
+  Base parameter name. Creates `{name}_from` and `{name}_to` parameters.
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_numeric_range.html"'>
+  Template used to render the filter
+</ParamField>
+
+### SliderNumericFilter
+
+<ParamField path="STEP" type="int | float | None" default="None">
+  Increment between slider values. Auto-calculated if not set.
+</ParamField>
+
+<ParamField path="MAX_DECIMALS" type="int" default="7">
+  Maximum decimal places for float/decimal fields
+</ParamField>
+
+<ParamField path="template" type="str" default='"unfold/filters/filters_numeric_slider.html"'>
+  Template used to render the filter
+</ParamField>
+
+## Best Practices
+
+<Steps>
+  <Step title="Choose the right filter">
+    - **SingleNumericFilter**: For exact value lookups (IDs, specific quantities)
+    - **RangeNumericFilter**: For precise range filtering with keyboard input
+    - **SliderNumericFilter**: For visual exploration and approximate ranges
+  </Step>
+
+  <Step title="Consider user experience">
+    - Use sliders for fields with reasonable ranges (1-1000)
+    - Use text inputs for fields with large ranges (1-1000000)
+    - Provide visual feedback with current values
+  </Step>
+
+  <Step title="Optimize performance">
+    - Add database indexes to filtered fields
+    - Cache min/max values for sliders if possible
+    - Use `select_related()` for related field filters
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Date/Time Filters" icon="calendar" href="/filters/datetime">
+    Learn about date and datetime range filters
+  </Card>
+  
+  <Card title="Text Filters" icon="input-text" href="/filters/text">
+    Explore text-based search filters
+  </Card>
+</CardGroup>
