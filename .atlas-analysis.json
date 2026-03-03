@@ -1,0 +1,213 @@
+{
+  "projectType": "framework",
+  "projectName": "Django Unfold",
+  "projectDescription": "Modern Django admin theme with customizable UI components, advanced filters, and dashboard tools built on Tailwind CSS",
+  "theme": "maple",
+  "primaryColor": "#a855f7",
+  "lightColor": "#f3e8ff",
+  "darkColor": "#581c87",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/modeladmin",
+              "concepts/customization",
+              "concepts/theming"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/overview",
+              "components/card",
+              "components/button",
+              "components/chart",
+              "components/table",
+              "components/progress",
+              "components/tracker",
+              "components/cohort",
+              "components/layer"
+            ]
+          },
+          {
+            "group": "Filters",
+            "pages": [
+              "filters/overview",
+              "filters/dropdown",
+              "filters/autocomplete",
+              "filters/numeric",
+              "filters/datetime",
+              "filters/text",
+              "filters/checkbox-radio"
+            ]
+          },
+          {
+            "group": "Forms & Fields",
+            "pages": [
+              "forms/overview",
+              "forms/crispy-forms",
+              "forms/conditional-fields",
+              "forms/fields",
+              "forms/widgets"
+            ]
+          },
+          {
+            "group": "Inlines & Tabs",
+            "pages": [
+              "inlines/overview",
+              "inlines/inline-tabs",
+              "inlines/fieldset-tabs",
+              "inlines/model-tabs",
+              "inlines/sortable",
+              "inlines/paginated",
+              "inlines/nonrelated"
+            ]
+          },
+          {
+            "group": "Actions",
+            "pages": [
+              "actions/overview",
+              "actions/list-actions",
+              "actions/detail-actions",
+              "actions/row-actions",
+              "actions/submit-line-actions"
+            ]
+          },
+          {
+            "group": "Advanced Features",
+            "pages": [
+              "advanced/dashboard",
+              "advanced/datasets",
+              "advanced/command-palette",
+              "advanced/sidebar-navigation",
+              "advanced/custom-pages",
+              "advanced/environment-label",
+              "advanced/language-switcher"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/settings",
+              "configuration/colors",
+              "configuration/styles-scripts",
+              "configuration/favicons",
+              "configuration/authentication"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Integrations",
+        "groups": [
+          {
+            "group": "Third-Party Packages",
+            "pages": [
+              "integrations/overview",
+              "integrations/django-guardian",
+              "integrations/django-import-export",
+              "integrations/django-simple-history",
+              "integrations/django-constance",
+              "integrations/django-celery-beat",
+              "integrations/django-modeltranslation",
+              "integrations/django-money",
+              "integrations/django-location-field",
+              "integrations/djangoql",
+              "integrations/django-json-widget"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/modeladmin",
+              "api/unfold-admin-site",
+              "api/inlines"
+            ]
+          },
+          {
+            "group": "Decorators",
+            "pages": [
+              "api/decorators/action",
+              "api/decorators/display"
+            ]
+          },
+          {
+            "group": "Widgets & Fields",
+            "pages": [
+              "api/widgets",
+              "api/fields"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "api/component-classes"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Additional Resources",
+            "pages": [
+              "resources/changelog",
+              "resources/migration-guide",
+              "resources/troubleshooting",
+              "resources/contributing",
+              "resources/faq"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Modern UI with Tailwind CSS",
+    "Dark mode support",
+    "Advanced filters (dropdown, autocomplete, numeric, datetime)",
+    "Sidebar navigation with icons and collapsible sections",
+    "Dashboard tools and UI components",
+    "WYSIWYG editor support",
+    "Custom actions throughout admin interface",
+    "Inline tabs and conditional fields",
+    "Command palette for quick search",
+    "Third-party package integrations",
+    "Flexible theming and customization"
+  ],
+  "publicApiSurface": [
+    "unfold.admin.ModelAdmin",
+    "unfold.admin.TabularInline",
+    "unfold.admin.StackedInline",
+    "unfold.admin.GenericTabularInline",
+    "unfold.admin.GenericStackedInline",
+    "unfold.sites.UnfoldAdminSite",
+    "unfold.decorators.action",
+    "unfold.decorators.display",
+    "unfold.widgets.UnfoldBooleanWidget",
+    "unfold.widgets.UnfoldBooleanRadioSelect",
+    "unfold.widgets.ArrayWidget",
+    "unfold.fields.ColorField",
+    "unfold.contrib.filters.admin.*",
+    "unfold.contrib.forms.widgets.*"
+  ]
+}
